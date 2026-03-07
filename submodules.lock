@@ -1,0 +1,36 @@
+version: 1
+policy:
+  manager: git-submodule-only
+  allow_fetchcontent: false
+  allow_package_managers: false
+  require_dependency_pr: true
+
+submodules:
+  - name: usearch
+    path: third_party/usearch
+    remote: https://github.com/unum-cloud/USearch.git
+    pinned_commit: "40d127f472e9073875566f0e9308c0302b89100a"
+    verify_checksum: false
+
+  - name: sqlite
+    path: third_party/sqlite
+    remote: https://github.com/sqlite/sqlite.git
+    pinned_commit: "9bc017423c5f841eb55a3d9e711356c19ac86dd5"
+    verify_checksum: false
+    notes:
+      - "FTS5 must be enabled in build configuration"
+
+  - name: googletest
+    path: third_party/googletest
+    remote: https://github.com/google/googletest.git
+    pinned_commit: "e9907112b47255d50b4d343e7e2160bce8dc85d1"
+    verify_checksum: false
+
+  - name: poco
+    path: third_party/poco
+    remote: https://github.com/pocoproject/poco
+    pinned_commit: "37dd841a666b96a3c18dfe27fc964d672c11843f"
+    verify_checksum: false
+    notes:
+      - "Used by server/ for HTTP + JSON RPC transport layer"
+

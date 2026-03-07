@@ -1,0 +1,18 @@
+.DS_Store
+.netrc
+
+# Build artifacts
+/build/
+/build-*/
+/cmake-build-*/
+/out/
+/.cache/
+*.writer.lease
+*.profraw
+*.profdata
+
+# MCP bridge dependencies
+/mcp/node_modules/
+
+# Claude
+.claude/settings.local.json

@@ -1,0 +1,60 @@
+Wick
+Copyright 2025-2026 Timur Losev
+
+This product is a derivative work of the Wax project by Christopher Karani
+(https://github.com/christopherkarani/Wax), licensed under the Apache
+License, Version 2.0.
+
+The original Wax is a Swift library providing on-device AI agent memory
+with hybrid BM25 + HNSW retrieval, MiniLM embeddings on Apple Metal,
+single-file .wax storage with WAL crash safety, and token budget management.
+Designed for iOS 17+ / macOS 14+.
+
+Wick is a full C++ rewrite and extension of the Wax core, targeting
+cross-platform use with Unreal Engine 5 code intelligence. The following
+is a summary of changes relative to the original project:
+
+Language and platform:
+  - Complete port from Swift to C++20; no Apple platform dependency.
+  - Cross-platform build via CMake (Windows, Linux).
+  - Storage format changed from .wax to .mv2s (append-only binary with
+    WAL ring buffer).
+
+Search and storage:
+  - BM25 replaced with SQLite FTS5 full-text search backend.
+  - HNSW vector engine reimplemented on top of USearch.
+  - MiniLM Apple Metal embeddings replaced with arbitrary GGUF models
+    via llama.cpp (platform-independent).
+
+New: HTTP RAG server:
+  - Standalone JSON-RPC HTTP server (Poco-based) on port 8080.
+  - RPC methods: remember, recall, answer.generate, index.start/status/stop,
+    fact.search, blueprint.read/write.
+
+New: MCP bridge for IDE integration:
+  - Node.js MCP bridge (stdio) connecting VS Code / Claude Code to the
+    RAG server with tools: wax_recall, wax_remember, wax_fact_search,
+    wax_blueprint_read, wax_blueprint_write.
+
+New: Unreal Engine 5 code intelligence:
+  - UE5 filesystem scanner with .h/.hpp/.cpp/.inl/.inc and .bpl_json support.
+  - Regex enricher for UCLASS/USTRUCT/UENUM macros, UPROPERTY/UFUNCTION
+    declarations, and class hierarchies.
+  - LLM fact enricher via local Qwen2.5-Coder-32B (llama.cpp) extracting
+    entity-attribute-value triples from code and Blueprint chunks.
+  - Structured EAV triple store with transactional staging.
+  - Blueprint round-trip API: read, write, import with automatic backups.
+
+New: Local LLM integration:
+  - llama.cpp generation client for RAG-augmented code answers (Qwen3-Coder).
+  - llama.cpp embedding provider for optional vector search channel.
+
+New: Background indexing:
+  - Async index job manager with states (idle/running/stopped/failed),
+    persistent checkpointing, incremental re-indexing via content hashes,
+    and resume support.
+
+New: Operational tooling:
+  - mv2s_analyzer: binary store inspector.
+  - mv2s_vacuum: store compaction tool.
+  - PowerShell/batch control panel for server operations.

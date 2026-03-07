@@ -1,0 +1,3 @@
+mode=verify_fail
+verify_deep=true
+error_contains=stored checksum mismatch

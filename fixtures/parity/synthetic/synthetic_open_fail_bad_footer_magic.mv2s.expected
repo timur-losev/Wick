@@ -1,0 +1,2 @@
+mode=open_fail
+error_contains=no valid footer

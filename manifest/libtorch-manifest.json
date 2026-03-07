@@ -1,0 +1,12 @@
+{
+  "artifacts": [
+    {
+      "path": "README.md",
+      "sha256": "1a969f71888d2c8a5856bf3d2a7e94f0814eaf254d52d79ea517219ddf084bef"
+    },
+    {
+      "path": "main.sh",
+      "sha256": "9ce4595ed167f06c796bef38a258500345c0499257565f0e21c89cf0b6982ea1"
+    }
+  ]
+}

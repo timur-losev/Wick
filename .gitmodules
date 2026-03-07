@@ -1,0 +1,12 @@
+[submodule "third_party/usearch"]
+	path = third_party/usearch
+	url = https://github.com/unum-cloud/USearch.git
+[submodule "third_party/sqlite"]
+	path = third_party/sqlite
+	url = https://github.com/sqlite/sqlite.git
+[submodule "third_party/googletest"]
+	path = third_party/googletest
+	url = https://github.com/google/googletest.git
+[submodule "third_party/poco"]
+	path = third_party/poco
+	url = https://github.com/pocoproject/poco

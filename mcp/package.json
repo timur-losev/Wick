@@ -1,0 +1,15 @@
+{
+  "name": "wax-mcp-bridge",
+  "version": "0.1.0",
+  "description": "MCP server bridging VS Code agents to WAX C++ RAG server",
+  "type": "module",
+  "bin": {
+    "wax-mcp-bridge": "wax_mcp_server.js"
+  },
+  "scripts": {
+    "start": "node wax_mcp_server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  }
+}

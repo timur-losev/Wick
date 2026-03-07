@@ -1,0 +1,2 @@
+mode=open_fail
+error_contains=lex index manifest missing matching segment catalog entry

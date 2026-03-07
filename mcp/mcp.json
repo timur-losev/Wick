@@ -1,0 +1,12 @@
+{
+  "servers": {
+    "wax": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["G:/Proj/Wick/mcp/wax_mcp_server.js"],
+      "env": {
+        "WAX_URL": "http://127.0.0.1:8080"
+      }
+    }
+  }
+}

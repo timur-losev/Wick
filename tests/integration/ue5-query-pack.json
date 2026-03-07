@@ -1,0 +1,49 @@
+[
+  {
+    "id": "ubt-module-rules",
+    "query": "How does UnrealBuildTool ModuleRules configure module dependencies and include paths in UE5?",
+    "must_cite_path_substr": [
+      "Engine/Source/Programs/UnrealBuildTool",
+      "Configuration/ModuleRules"
+    ]
+  },
+  {
+    "id": "uobject-reflection-macros",
+    "query": "Explain how UCLASS, USTRUCT, and UPROPERTY reflection macros are represented in runtime UObject type metadata.",
+    "must_cite_path_substr": [
+      "Engine/Source/Runtime/CoreUObject"
+    ]
+  },
+  {
+    "id": "tarray-memory-growth",
+    "query": "How does TArray grow capacity and manage allocators in UE5 core containers?",
+    "must_cite_path_substr": [
+      "Engine/Source/Runtime/Core/Public/Containers",
+      "Array"
+    ]
+  },
+  {
+    "id": "task-graph-overview",
+    "query": "Describe how UE5 task graph and async execution are implemented in Runtime Core.",
+    "must_cite_path_substr": [
+      "Engine/Source/Runtime/Core",
+      "Async"
+    ]
+  },
+  {
+    "id": "logging-system",
+    "query": "How are log categories declared and routed through UE_LOG in UE5?",
+    "must_cite_path_substr": [
+      "Engine/Source/Runtime/Core",
+      "Logging"
+    ]
+  },
+  {
+    "id": "world-tick-flow",
+    "query": "What is the high-level tick/update flow for UWorld and actors in UE5?",
+    "must_cite_path_substr": [
+      "Engine/Source/Runtime/Engine",
+      "World"
+    ]
+  }
+]

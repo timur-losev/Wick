@@ -1,0 +1,7 @@
+mode=pass
+verify_deep=true
+frame_count=1
+generation=1
+frame_payload_len.0=28
+frame_status.0=0
+frame_payload_utf8.0=swift parity payload fixture
