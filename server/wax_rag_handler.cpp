@@ -1,6 +1,7 @@
 // cpp/server/wax_rag_handler.cpp
 #include "wax_rag_handler.hpp"
 #include "chunk_enricher.hpp"
+#include "fact_service.hpp"
 #include "regex_ue5_enricher.hpp"
 #include "llm_fact_enricher.hpp"
 #include "runtime_config.hpp"
@@ -116,6 +117,12 @@ struct IntParamParseResult {
     int value = 0;
 };
 
+struct UInt64ParamParseResult {
+    bool present = false;
+    bool valid = false;
+    std::uint64_t value = 0;
+};
+
 IntParamParseResult ParseIntParamStrict(const Poco::JSON::Object::Ptr& params,
                                         const std::string& key) {
     if (params.isNull() || !params->has(key)) {
@@ -129,6 +136,34 @@ IntParamParseResult ParseIntParamStrict(const Poco::JSON::Object::Ptr& params,
         };
     } catch (const Poco::Exception&) {
         return IntParamParseResult{
+            .present = true,
+            .valid = false,
+            .value = 0,
+        };
+    }
+}
+
+UInt64ParamParseResult ParseUInt64ParamStrict(const Poco::JSON::Object::Ptr& params,
+                                              const std::string& key) {
+    if (params.isNull() || !params->has(key)) {
+        return UInt64ParamParseResult{};
+    }
+    try {
+        const auto value = params->getValue<Poco::Int64>(key);
+        if (value < 0) {
+            return UInt64ParamParseResult{
+                .present = true,
+                .valid = false,
+                .value = 0,
+            };
+        }
+        return UInt64ParamParseResult{
+            .present = true,
+            .valid = true,
+            .value = static_cast<std::uint64_t>(value),
+        };
+    } catch (const Poco::Exception&) {
+        return UInt64ParamParseResult{
             .present = true,
             .valid = false,
             .value = 0,
@@ -156,6 +191,33 @@ void ServerLog(std::string_view message) {
 std::uint64_t NowMs() {
     const auto now = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now());
     return static_cast<std::uint64_t>(now.time_since_epoch().count());
+}
+
+waxcpp::Metadata ParseStringMetadataObject(const Poco::JSON::Object::Ptr& params) {
+    waxcpp::Metadata metadata_map{};
+    if (params.isNull() || !params->has("metadata")) {
+        return metadata_map;
+    }
+
+    Poco::JSON::Object::Ptr metadata;
+    try {
+        metadata = params->getObject("metadata");
+    } catch (const Poco::Exception&) {
+        metadata = nullptr;
+    }
+
+    if (metadata.isNull()) {
+        return metadata_map;
+    }
+
+    for (const auto& [key, value] : *metadata) {
+        try {
+            metadata_map[key] = value.convert<std::string>();
+        } catch (const Poco::Exception&) {
+            // Ignore non-string metadata values for deterministic behavior.
+        }
+    }
+    return metadata_map;
 }
 
 std::optional<std::uint64_t> CurrentProcessRSSBytes() {
@@ -547,31 +609,173 @@ std::string WaxRAGHandler::handle_remember(const Poco::JSON::Object::Ptr& params
         return "Missing required parameter 'content'";
     }
 
-    waxcpp::Metadata metadata_map{};
-    if (!params.isNull() && params->has("metadata")) {
-        Poco::JSON::Object::Ptr metadata;
-        try {
-            metadata = params->getObject("metadata");
-        } catch (const Poco::Exception&) {
-            metadata = nullptr;
-        }
-
-        if (!metadata.isNull()) {
-            for (const auto& [key, value] : *metadata) {
-                try {
-                    metadata_map[key] = value.convert<std::string>();
-                } catch (const Poco::Exception&) {
-                    // Ignore non-string metadata values for deterministic behavior.
-                }
-            }
-        }
-    }
+    const auto metadata_map = ParseStringMetadataObject(params);
 
     try {
         orchestrator_->Remember(content, metadata_map);
         return "OK";
     } catch (const std::exception& e) {
         return std::string("Error: ") + e.what();
+    }
+}
+
+std::string WaxRAGHandler::handle_fact_add(const Poco::JSON::Object::Ptr& params) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    FactService fact_service(*orchestrator_);
+
+    const std::string entity = (params.isNull() ? "" : params->optValue<std::string>("entity", ""));
+    if (entity.empty()) {
+        return "Missing required parameter 'entity'";
+    }
+
+    const std::string attribute = (params.isNull() ? "" : params->optValue<std::string>("attribute", ""));
+    if (attribute.empty()) {
+        return "Missing required parameter 'attribute'";
+    }
+
+    const std::string value = (params.isNull() ? "" : params->optValue<std::string>("value", ""));
+    const auto metadata_map = ParseStringMetadataObject(params);
+
+    try {
+        fact_service.AddFact(entity, attribute, value, metadata_map);
+        return "OK";
+    } catch (const std::exception& e) {
+        return std::string("Error: ") + e.what();
+    }
+}
+
+std::string WaxRAGHandler::handle_fact_get(const Poco::JSON::Object::Ptr& params) {
+    const auto fact_id = ParseUInt64ParamStrict(params, "id");
+    if (!fact_id.present) {
+        return "{\"error\":\"Missing required parameter 'id'\"}";
+    }
+    if (!fact_id.valid) {
+        return "{\"error\":\"Invalid parameter 'id'\"}";
+    }
+
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        FactService fact_service(*orchestrator_);
+        const auto fact = fact_service.GetFact(fact_id.value);
+        if (!fact.has_value()) {
+            return "{\"error\":\"fact not found\"}";
+        }
+
+        Poco::JSON::Object response;
+        response.set("fact", FactService::ToJson(*fact));
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
+    }
+}
+
+std::string WaxRAGHandler::handle_fact_update(const Poco::JSON::Object::Ptr& params) {
+    const auto fact_id = ParseUInt64ParamStrict(params, "id");
+    if (!fact_id.present) {
+        return "{\"error\":\"Missing required parameter 'id'\"}";
+    }
+    if (!fact_id.valid) {
+        return "{\"error\":\"Invalid parameter 'id'\"}";
+    }
+
+    const std::string value = (params.isNull() ? "" : params->optValue<std::string>("value", ""));
+    const auto metadata_map = ParseStringMetadataObject(params);
+
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        FactService fact_service(*orchestrator_);
+        const auto result = fact_service.UpdateFact(fact_id.value, value, metadata_map);
+        Poco::JSON::Object response;
+        response.set("updated", true);
+        response.set("id", static_cast<Poco::Int64>(result.id));
+        response.set("previous_id", static_cast<Poco::Int64>(*result.previous_id));
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
+    }
+}
+
+std::string WaxRAGHandler::handle_fact_delete(const Poco::JSON::Object::Ptr& params) {
+    const auto fact_id = ParseUInt64ParamStrict(params, "id");
+    if (!fact_id.present) {
+        return "{\"error\":\"Missing required parameter 'id'\"}";
+    }
+    if (!fact_id.valid) {
+        return "{\"error\":\"Invalid parameter 'id'\"}";
+    }
+
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        FactService fact_service(*orchestrator_);
+        const bool deleted = fact_service.DeleteFact(fact_id.value);
+        Poco::JSON::Object response;
+        response.set("deleted", deleted);
+        response.set("id", static_cast<Poco::Int64>(fact_id.value));
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
+    }
+}
+
+std::string WaxRAGHandler::handle_fact_pin(const Poco::JSON::Object::Ptr& params) {
+    const auto fact_id = ParseUInt64ParamStrict(params, "id");
+    if (!fact_id.present) {
+        return "{\"error\":\"Missing required parameter 'id'\"}";
+    }
+    if (!fact_id.valid) {
+        return "{\"error\":\"Invalid parameter 'id'\"}";
+    }
+    const bool pinned = (params.isNull() ? true : params->optValue<bool>("pinned", true));
+
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        FactService fact_service(*orchestrator_);
+        const auto result = fact_service.PinFact(fact_id.value, pinned);
+        Poco::JSON::Object response;
+        response.set("pinned", pinned);
+        response.set("id", static_cast<Poco::Int64>(result.id));
+        response.set("previous_id", static_cast<Poco::Int64>(*result.previous_id));
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
+    }
+}
+
+std::string WaxRAGHandler::handle_fact_history(const Poco::JSON::Object::Ptr& params) {
+    const auto fact_id = ParseUInt64ParamStrict(params, "id");
+    if (!fact_id.present) {
+        return "{\"error\":\"Missing required parameter 'id'\"}";
+    }
+    if (!fact_id.valid) {
+        return "{\"error\":\"Invalid parameter 'id'\"}";
+    }
+
+    try {
+        std::lock_guard<std::mutex> lock(mutex_);
+        FactService fact_service(*orchestrator_);
+        const auto history = fact_service.History(fact_id.value);
+        Poco::JSON::Array history_array;
+        for (const auto& fact : history) {
+            history_array.add(FactService::ToJson(fact));
+        }
+
+        Poco::JSON::Object response;
+        response.set("history", history_array);
+        response.set("count", static_cast<int>(history.size()));
+        response.set("id", static_cast<Poco::Int64>(fact_id.value));
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
     }
 }
 
@@ -1587,16 +1791,12 @@ std::string WaxRAGHandler::handle_fact_search(const Poco::JSON::Object::Ptr& par
 
     try {
         std::lock_guard<std::mutex> lock(mutex_);
-        auto facts = orchestrator_->RecallFactsByEntityPrefix(entity_prefix, limit);
+        FactService fact_service(*orchestrator_);
+        auto facts = fact_service.SearchByEntityPrefix(entity_prefix, limit);
 
         Poco::JSON::Array facts_array;
         for (const auto& fact : facts) {
-            Poco::JSON::Object::Ptr row = new Poco::JSON::Object();
-            row->set("entity", fact.entity);
-            row->set("attribute", fact.attribute);
-            row->set("value", fact.value);
-            row->set("id", static_cast<std::int64_t>(fact.id));
-            facts_array.add(row);
+            facts_array.add(FactService::ToJson(fact));
         }
 
         Poco::JSON::Object response;

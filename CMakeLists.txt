@@ -448,6 +448,7 @@ if (WAXCPP_BUILD_TESTS)
 
     add_executable(waxcpp_wax_rag_handler_index_test
       tests/unit/wax_rag_handler_index_test.cpp
+      server/fact_service.cpp
       server/wax_rag_handler.cpp
       server/index_job_manager.cpp
       server/ue5_filesystem_scanner.cpp
@@ -475,6 +476,7 @@ if (WAXCPP_BUILD_TESTS)
 
     add_executable(waxcpp_wax_rag_handler_answer_test
       tests/unit/wax_rag_handler_answer_test.cpp
+      server/fact_service.cpp
       server/wax_rag_handler.cpp
       server/index_job_manager.cpp
       server/ue5_filesystem_scanner.cpp

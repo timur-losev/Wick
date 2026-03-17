@@ -49,6 +49,13 @@ class MemoryOrchestrator {
                     const std::string& value,
                     const Metadata& metadata = {});
   bool ForgetFact(const std::string& entity, const std::string& attribute);
+  std::optional<StructuredMemoryEntry> GetFactById(std::uint64_t fact_id);
+  std::uint64_t UpdateFactById(std::uint64_t fact_id,
+                               const std::string& value,
+                               const Metadata& metadata = {});
+  bool DeleteFactById(std::uint64_t fact_id);
+  std::uint64_t SetFactPinned(std::uint64_t fact_id, bool pinned = true);
+  std::vector<StructuredMemoryEntry> FactHistoryById(std::uint64_t fact_id);
   std::vector<StructuredMemoryEntry> RecallFactsByEntityPrefix(const std::string& entity_prefix, int limit = 32);
 
   // ── Direct search ──────────────────────────────────────────

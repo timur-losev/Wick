@@ -34,7 +34,11 @@ void StructuredMemoryStore::EnsureStagingState() {
 std::uint64_t StructuredMemoryStore::StageUpsert(const std::string& entity,
                                                  const std::string& attribute,
                                                  const std::string& value,
-                                                 const Metadata& metadata) {
+                                                 const Metadata& metadata,
+                                                 std::optional<std::uint64_t> explicit_id,
+                                                 std::optional<std::uint64_t> explicit_supersedes,
+                                                 std::optional<std::int64_t> explicit_timestamp_ms,
+                                                 std::optional<bool> explicit_pinned) {
   if (entity.empty()) {
     throw std::runtime_error("StructuredMemoryStore::Upsert entity must be non-empty");
   }
@@ -49,20 +53,37 @@ std::uint64_t StructuredMemoryStore::StageUpsert(const std::string& entity,
   std::uint64_t id = 0;
   if (it == staged_entries_.end()) {
     StructuredMemoryEntry entry{};
-    entry.id = staged_next_id_++;
+    entry.id = explicit_id.value_or(staged_next_id_++);
     entry.entity = entity;
     entry.attribute = attribute;
     entry.value = value;
     entry.metadata = metadata;
     entry.version = 1;
+    entry.supersedes = explicit_supersedes;
+    entry.pinned = explicit_pinned.value_or(false);
+    entry.timestamp_ms = explicit_timestamp_ms.value_or(0);
     id = entry.id;
     staged_entries_.emplace(key, std::move(entry));
   } else {
+    if (explicit_id.has_value()) {
+      it->second.id = *explicit_id;
+    }
     it->second.value = value;
     it->second.metadata = metadata;
     it->second.version += 1;
+    it->second.supersedes = explicit_supersedes;
+    if (explicit_pinned.has_value()) {
+      it->second.pinned = *explicit_pinned;
+    }
+    if (explicit_timestamp_ms.has_value()) {
+      it->second.timestamp_ms = *explicit_timestamp_ms;
+    }
     id = it->second.id;
   }
+  if (explicit_id.has_value()) {
+    staged_next_id_ = std::max(staged_next_id_, *explicit_id + 1);
+  }
+  staged_query_visibility_enabled_ = true;
 
   pending_mutations_.push_back(PendingMutation{
       PendingMutationType::kUpsert,
@@ -102,6 +123,7 @@ std::optional<std::uint64_t> StructuredMemoryStore::StageRemove(const std::strin
   } else {
     return std::nullopt;
   }
+  staged_query_visibility_enabled_ = true;
   pending_mutations_.push_back(PendingMutation{
       PendingMutationType::kRemove,
       key,
@@ -118,12 +140,18 @@ void StructuredMemoryStore::CommitStaged() {
   staged_entries_.clear();
   next_id_ = staged_next_id_;
   pending_mutations_.clear();
+  staged_query_visibility_enabled_ = false;
 }
 
 void StructuredMemoryStore::RollbackStaged() {
   pending_mutations_.clear();
   staged_entries_.clear();
   staged_next_id_ = next_id_;
+  staged_query_visibility_enabled_ = false;
+}
+
+void StructuredMemoryStore::SetStagedQueryVisibility(bool visible) {
+  staged_query_visibility_enabled_ = visible;
 }
 
 std::size_t StructuredMemoryStore::PendingMutationCount() const {
@@ -160,9 +188,13 @@ std::vector<StructuredMemoryEntry> StructuredMemoryStore::QueryByEntityPrefix(co
   if (limit == 0) {
     return {};
   }
+  const auto* visible_entries = &entries_;
+  if (!pending_mutations_.empty() && staged_query_visibility_enabled_) {
+    visible_entries = &staged_entries_;
+  }
   std::vector<StructuredMemoryEntry> out{};
-  out.reserve(entries_.size());
-  for (const auto& [_, entry] : entries_) {
+  out.reserve(visible_entries->size());
+  for (const auto& [_, entry] : *visible_entries) {
     if (!entity_prefix.empty() && entry.entity.rfind(entity_prefix, 0) != 0) {
       continue;
     }

@@ -118,8 +118,9 @@ void ScenarioStagedMutationVisibilityAndRollback() {
   const auto staged_id = store.StageUpsert("user:1", "city", "Rome", {{"src", "stage"}});
   Require(store.PendingMutationCount() == 1, "stage upsert must increase pending mutation count");
   Require(!store.Get("user:1", "city").has_value(), "staged upsert must stay invisible before commit");
-  Require(store.QueryByEntityPrefix("user:", -1).empty(),
-          "staged upsert must not appear in committed query view");
+  const auto staged_query = store.QueryByEntityPrefix("user:", -1);
+  Require(staged_query.size() == 1, "staged upsert must appear in query view");
+  Require(staged_query.front().id == staged_id, "staged query must expose staged fact id");
 
   store.RollbackStaged();
   Require(store.PendingMutationCount() == 0, "rollback must clear pending mutation count");
@@ -260,8 +261,9 @@ void ScenarioSeededStagedMutationModelParity() {
 
   auto model_all = [&]() {
     std::vector<waxcpp::StructuredMemoryEntry> out{};
-    out.reserve(committed.size());
-    for (const auto& [_, entry] : committed) {
+    const auto& source = (pending_mutations != 0) ? staged : committed;
+    out.reserve(source.size());
+    for (const auto& [_, entry] : source) {
       out.push_back(waxcpp::StructuredMemoryEntry{
           .id = entry.id,
           .entity = entry.entity,
@@ -279,7 +281,20 @@ void ScenarioSeededStagedMutationModelParity() {
     if (limit == 0) {
       return std::vector<waxcpp::StructuredMemoryEntry>{};
     }
-    auto out = model_all();
+    std::vector<waxcpp::StructuredMemoryEntry> out{};
+    const auto& source = (pending_mutations != 0) ? staged : committed;
+    out.reserve(source.size());
+    for (const auto& [_, entry] : source) {
+      out.push_back(waxcpp::StructuredMemoryEntry{
+          .id = entry.id,
+          .entity = entry.entity,
+          .attribute = entry.attribute,
+          .value = entry.value,
+          .metadata = entry.metadata,
+          .version = entry.version,
+      });
+    }
+    std::sort(out.begin(), out.end(), entry_less);
     out.erase(std::remove_if(out.begin(), out.end(), [&](const auto& entry) {
                 if (prefix.empty()) {
                   return false;

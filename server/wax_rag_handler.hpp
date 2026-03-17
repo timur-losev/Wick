@@ -44,6 +44,12 @@ public:
     std::string handle_blueprint_import(const Poco::JSON::Object::Ptr& params);
 
     // Fact inspection
+    std::string handle_fact_add(const Poco::JSON::Object::Ptr& params);
+    std::string handle_fact_get(const Poco::JSON::Object::Ptr& params);
+    std::string handle_fact_update(const Poco::JSON::Object::Ptr& params);
+    std::string handle_fact_delete(const Poco::JSON::Object::Ptr& params);
+    std::string handle_fact_pin(const Poco::JSON::Object::Ptr& params);
+    std::string handle_fact_history(const Poco::JSON::Object::Ptr& params);
     std::string handle_fact_search(const Poco::JSON::Object::Ptr& params);
 
     /// Returns true if the FTS5 SQLite full-text search backend is active.

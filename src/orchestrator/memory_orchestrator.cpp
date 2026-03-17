@@ -102,6 +102,7 @@ constexpr std::uint32_t kMaxEmbeddingIdentityTagBytes = 4096;
 constexpr std::uint32_t kMaxStructuredFactFieldBytes = 4U * 1024U * 1024U;
 constexpr std::uint32_t kMaxStructuredFactMetadataPairs = 16384U;
 constexpr std::uint32_t kMaxStructuredFactPayloadBytes = 8U * 1024U * 1024U;
+constexpr const char* kFactPinnedMetadataKey = "fact_pinned";
 
 enum class StructuredFactOpcode : std::uint8_t {
   kUpsert = 1,
@@ -404,6 +405,63 @@ std::optional<StructuredFactRecord> ParseStructuredFactPayload(const std::vector
   return record;
 }
 
+bool MetadataFlagTrue(const Metadata& metadata, const std::string& key) {
+  const auto it = metadata.find(key);
+  if (it == metadata.end()) {
+    return false;
+  }
+  const auto normalized = ToAsciiLower(it->second);
+  return normalized == "1" || normalized == "true" || normalized == "yes" || normalized == "on";
+}
+
+void SetMetadataFlag(Metadata& metadata, const std::string& key, bool value) {
+  metadata[key] = value ? "true" : "false";
+}
+
+std::optional<StructuredMemoryEntry> StructuredFactEntryFromFrame(const WaxFrameMeta& meta,
+                                                                  const std::vector<std::byte>& payload) {
+  const auto fact = ParseStructuredFactPayload(payload);
+  if (!fact.has_value() || fact->opcode != StructuredFactOpcode::kUpsert) {
+    return std::nullopt;
+  }
+
+  StructuredMemoryEntry entry{};
+  entry.id = meta.id;
+  entry.entity = fact->entity;
+  entry.attribute = fact->attribute;
+  entry.value = fact->value;
+  entry.metadata = fact->metadata;
+  entry.version = 1;
+  entry.supersedes = meta.supersedes;
+  entry.pinned = MetadataFlagTrue(fact->metadata, kFactPinnedMetadataKey);
+  entry.deleted = meta.status != 0;
+  entry.timestamp_ms = meta.timestamp_ms;
+  return entry;
+}
+
+std::optional<StructuredMemoryEntry> LoadFactEntryFromStore(WaxStore& store,
+                                                            std::uint64_t fact_id,
+                                                            bool include_pending) {
+  const auto meta = store.FrameMeta(fact_id, include_pending);
+  if (!meta.has_value()) {
+    return std::nullopt;
+  }
+  const auto payload = store.FrameContent(fact_id, include_pending);
+  return StructuredFactEntryFromFrame(*meta, payload);
+}
+
+std::optional<StructuredMemoryEntry> FindVisibleStructuredFact(const StructuredMemoryStore& structured_memory,
+                                                               const std::string& entity,
+                                                               const std::string& attribute) {
+  const auto visible = structured_memory.QueryByEntityPrefix(entity, -1);
+  for (const auto& entry : visible) {
+    if (entry.entity == entity && entry.attribute == attribute) {
+      return entry;
+    }
+  }
+  return std::nullopt;
+}
+
 std::optional<EmbeddingRecord> ParseEmbeddingRecordPayload(const std::vector<std::byte>& payload) {
   if (payload.size() < kEmbeddingRecordMagic.size() + 8 + 4) {
     return std::nullopt;
@@ -675,7 +733,15 @@ void ReplayStructuredFactsFromStore(WaxStore& store, StructuredMemoryStore& stru
     // entries_ map into staged_entries_. With 649K facts this is catastrophic.
     // Instead: stage all facts, commit once at the end.
     if (fact->opcode == StructuredFactOpcode::kUpsert) {
-      (void)structured_memory.StageUpsert(fact->entity, fact->attribute, fact->value, fact->metadata);
+      const auto& meta = metas[c.meta_index];
+      (void)structured_memory.StageUpsert(fact->entity,
+                                          fact->attribute,
+                                          fact->value,
+                                          fact->metadata,
+                                          meta.id,
+                                          meta.supersedes,
+                                          meta.timestamp_ms,
+                                          MetadataFlagTrue(fact->metadata, kFactPinnedMetadataKey));
     } else if (fact->opcode == StructuredFactOpcode::kRemove) {
       (void)structured_memory.StageRemove(fact->entity, fact->attribute);
     }
@@ -1855,7 +1921,15 @@ void MemoryOrchestrator::RememberFact(const std::string& entity,
   }
 
   const auto payload = BuildStructuredFactUpsertPayload(entity, attribute, value, effective_meta);
-  const auto fact_id = structured_memory_.StageUpsert(entity, attribute, value, effective_meta);
+  const auto fact_id = store_.Put(payload, effective_meta);
+  (void)structured_memory_.StageUpsert(entity,
+                                       attribute,
+                                       value,
+                                       effective_meta,
+                                       fact_id,
+                                       std::nullopt,
+                                       NowMs(),
+                                       MetadataFlagTrue(effective_meta, kFactPinnedMetadataKey));
   if (config_.enable_text_search) {
     StructuredMemoryEntry preview_entry{};
     preview_entry.id = fact_id;
@@ -1864,7 +1938,6 @@ void MemoryOrchestrator::RememberFact(const std::string& entity,
     preview_entry.value = value;
     structured_text_index_.StageIndex(kStructuredMemoryFrameIdBase + fact_id, StructuredFactPreviewText(preview_entry));
   }
-  (void)store_.Put(payload, effective_meta);
 }
 
 bool MemoryOrchestrator::ForgetFact(const std::string& entity, const std::string& attribute) {
@@ -1897,6 +1970,163 @@ bool MemoryOrchestrator::ForgetFact(const std::string& entity, const std::string
   const auto payload = BuildStructuredFactRemovePayload(entity, attribute);
   (void)store_.Put(payload, {});
   return true;
+}
+
+std::optional<StructuredMemoryEntry> MemoryOrchestrator::GetFactById(std::uint64_t fact_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  ThrowIfClosed(closed_);
+  return LoadFactEntryFromStore(store_, fact_id, true);
+}
+
+std::uint64_t MemoryOrchestrator::UpdateFactById(std::uint64_t fact_id,
+                                                 const std::string& value,
+                                                 const Metadata& metadata) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  ThrowIfClosed(closed_);
+
+  const auto existing = LoadFactEntryFromStore(store_, fact_id, true);
+  if (!existing.has_value()) {
+    throw std::runtime_error("fact not found");
+  }
+  if (existing->deleted) {
+    throw std::runtime_error("cannot update deleted fact");
+  }
+  if (existing->pinned) {
+    throw std::runtime_error("cannot update pinned fact");
+  }
+
+  const auto active = FindVisibleStructuredFact(structured_memory_, existing->entity, existing->attribute);
+  if (!active.has_value() || active->id != fact_id) {
+    throw std::runtime_error("fact.update requires the current active fact revision");
+  }
+
+  Metadata effective_meta = existing->metadata;
+  for (const auto& [key, entry_value] : metadata) {
+    effective_meta[key] = entry_value;
+  }
+  SetMetadataFlag(effective_meta, kFactPinnedMetadataKey, existing->pinned);
+
+  last_write_activity_ms_ = NowMs();
+  const auto payload = BuildStructuredFactUpsertPayload(existing->entity, existing->attribute, value, effective_meta);
+  const auto new_fact_id = store_.Put(payload, effective_meta);
+  store_.Supersede(fact_id, new_fact_id);
+  (void)structured_memory_.StageUpsert(existing->entity,
+                                       existing->attribute,
+                                       value,
+                                       effective_meta,
+                                       new_fact_id,
+                                       fact_id,
+                                       NowMs(),
+                                       existing->pinned);
+  if (config_.enable_text_search) {
+    structured_text_index_.StageRemove(kStructuredMemoryFrameIdBase + fact_id);
+    StructuredMemoryEntry preview_entry{};
+    preview_entry.id = new_fact_id;
+    preview_entry.entity = existing->entity;
+    preview_entry.attribute = existing->attribute;
+    preview_entry.value = value;
+    structured_text_index_.StageIndex(kStructuredMemoryFrameIdBase + new_fact_id,
+                                      StructuredFactPreviewText(preview_entry));
+  }
+  return new_fact_id;
+}
+
+bool MemoryOrchestrator::DeleteFactById(std::uint64_t fact_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  ThrowIfClosed(closed_);
+
+  const auto existing = LoadFactEntryFromStore(store_, fact_id, true);
+  if (!existing.has_value()) {
+    return false;
+  }
+  if (existing->deleted) {
+    return false;
+  }
+  if (existing->pinned) {
+    throw std::runtime_error("cannot delete pinned fact");
+  }
+
+  last_write_activity_ms_ = NowMs();
+  store_.Delete(fact_id);
+
+  const auto active = FindVisibleStructuredFact(structured_memory_, existing->entity, existing->attribute);
+  if (active.has_value() && active->id == fact_id) {
+    const auto removed_id = structured_memory_.StageRemove(existing->entity, existing->attribute);
+    if (config_.enable_text_search && removed_id.has_value()) {
+      structured_text_index_.StageRemove(kStructuredMemoryFrameIdBase + *removed_id);
+    }
+    const auto tombstone = BuildStructuredFactRemovePayload(existing->entity, existing->attribute);
+    (void)store_.Put(tombstone, {});
+  }
+
+  return true;
+}
+
+std::uint64_t MemoryOrchestrator::SetFactPinned(std::uint64_t fact_id, bool pinned) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  ThrowIfClosed(closed_);
+
+  const auto existing = LoadFactEntryFromStore(store_, fact_id, true);
+  if (!existing.has_value()) {
+    throw std::runtime_error("fact not found");
+  }
+  if (existing->deleted) {
+    throw std::runtime_error("cannot pin deleted fact");
+  }
+
+  const auto active = FindVisibleStructuredFact(structured_memory_, existing->entity, existing->attribute);
+  if (!active.has_value() || active->id != fact_id) {
+    throw std::runtime_error("fact.pin requires the current active fact revision");
+  }
+  if (existing->pinned == pinned) {
+    return fact_id;
+  }
+
+  Metadata effective_meta = existing->metadata;
+  SetMetadataFlag(effective_meta, kFactPinnedMetadataKey, pinned);
+
+  last_write_activity_ms_ = NowMs();
+  const auto payload = BuildStructuredFactUpsertPayload(existing->entity, existing->attribute, existing->value, effective_meta);
+  const auto new_fact_id = store_.Put(payload, effective_meta);
+  store_.Supersede(fact_id, new_fact_id);
+  (void)structured_memory_.StageUpsert(existing->entity,
+                                       existing->attribute,
+                                       existing->value,
+                                       effective_meta,
+                                       new_fact_id,
+                                       fact_id,
+                                       NowMs(),
+                                       pinned);
+  if (config_.enable_text_search) {
+    structured_text_index_.StageRemove(kStructuredMemoryFrameIdBase + fact_id);
+    StructuredMemoryEntry preview_entry{};
+    preview_entry.id = new_fact_id;
+    preview_entry.entity = existing->entity;
+    preview_entry.attribute = existing->attribute;
+    preview_entry.value = existing->value;
+    structured_text_index_.StageIndex(kStructuredMemoryFrameIdBase + new_fact_id,
+                                      StructuredFactPreviewText(preview_entry));
+  }
+  return new_fact_id;
+}
+
+std::vector<StructuredMemoryEntry> MemoryOrchestrator::FactHistoryById(std::uint64_t fact_id) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  ThrowIfClosed(closed_);
+
+  std::vector<StructuredMemoryEntry> history{};
+  std::unordered_set<std::uint64_t> visited{};
+  std::optional<std::uint64_t> current = fact_id;
+  while (current.has_value() && !visited.contains(*current)) {
+    visited.insert(*current);
+    const auto entry = LoadFactEntryFromStore(store_, *current, true);
+    if (!entry.has_value()) {
+      break;
+    }
+    history.push_back(*entry);
+    current = entry->supersedes;
+  }
+  return history;
 }
 
 std::vector<StructuredMemoryEntry> MemoryOrchestrator::RecallFactsByEntityPrefix(const std::string& entity_prefix,
@@ -1978,6 +2208,10 @@ void MemoryOrchestrator::Flush() {
                                    vector_index_,
                                    embedding_cache_,
                                    surrogate_map_);
+    } else if (structured_memory_.PendingMutationCount() > 0) {
+      // Keep runtime fact mutations staged for retry, but hide them from query APIs
+      // until the store commit is successfully published.
+      structured_memory_.SetStagedQueryVisibility(false);
     }
     throw;
   } catch (...) {

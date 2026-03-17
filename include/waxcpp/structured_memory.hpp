@@ -17,6 +17,10 @@ struct StructuredMemoryEntry {
   std::string value;
   Metadata metadata;
   std::uint64_t version = 0;
+  std::optional<std::uint64_t> supersedes{};
+  bool pinned = false;
+  bool deleted = false;
+  std::int64_t timestamp_ms = 0;
 };
 
 class StructuredMemoryStore {
@@ -26,10 +30,15 @@ class StructuredMemoryStore {
   std::uint64_t StageUpsert(const std::string& entity,
                             const std::string& attribute,
                             const std::string& value,
-                            const Metadata& metadata = {});
+                            const Metadata& metadata = {},
+                            std::optional<std::uint64_t> explicit_id = std::nullopt,
+                            std::optional<std::uint64_t> explicit_supersedes = std::nullopt,
+                            std::optional<std::int64_t> explicit_timestamp_ms = std::nullopt,
+                            std::optional<bool> explicit_pinned = std::nullopt);
   std::optional<std::uint64_t> StageRemove(const std::string& entity, const std::string& attribute);
   void CommitStaged();
   void RollbackStaged();
+  void SetStagedQueryVisibility(bool visible);
   [[nodiscard]] std::size_t PendingMutationCount() const;
 
   std::uint64_t Upsert(const std::string& entity,
@@ -63,6 +72,7 @@ class StructuredMemoryStore {
   std::uint64_t staged_next_id_ = 0;
   std::unordered_map<std::string, StructuredMemoryEntry> staged_entries_;
   std::vector<PendingMutation> pending_mutations_;
+  bool staged_query_visibility_enabled_ = false;
 };
 
 }  // namespace waxcpp

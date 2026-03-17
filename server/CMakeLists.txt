@@ -28,6 +28,7 @@ if (NOT TARGET Poco::Foundation OR
 endif()
 
 add_executable(waxcpp_rag_server
+  fact_service.cpp
   index_job_manager.cpp
   llama_cpp_generation_client.cpp
   llama_cpp_embedding_provider.cpp

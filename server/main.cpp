@@ -70,6 +70,18 @@ public:
                 result = handler_.handle_blueprint_write(json_request.params);
             } else if (json_request.method == "blueprint.import") {
                 result = handler_.handle_blueprint_import(json_request.params);
+            } else if (json_request.method == "fact.add") {
+                result = handler_.handle_fact_add(json_request.params);
+            } else if (json_request.method == "fact.get") {
+                result = handler_.handle_fact_get(json_request.params);
+            } else if (json_request.method == "fact.update") {
+                result = handler_.handle_fact_update(json_request.params);
+            } else if (json_request.method == "fact.delete") {
+                result = handler_.handle_fact_delete(json_request.params);
+            } else if (json_request.method == "fact.pin") {
+                result = handler_.handle_fact_pin(json_request.params);
+            } else if (json_request.method == "fact.history") {
+                result = handler_.handle_fact_history(json_request.params);
             } else if (json_request.method == "fact.search") {
                 result = handler_.handle_fact_search(json_request.params);
             } else {

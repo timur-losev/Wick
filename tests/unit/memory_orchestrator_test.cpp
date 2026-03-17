@@ -4245,9 +4245,10 @@ void ScenarioStructuredFactSeededFlushReopenModelParity(const std::filesystem::p
     ensure_staged();
     const auto key = make_key(entity, attribute);
     auto it = staged.find(key);
+    const auto frame_id = staged_next_id++;
     if (it == staged.end()) {
       ModeledFact entry{};
-      entry.id = staged_next_id++;
+      entry.id = frame_id;
       entry.entity = entity;
       entry.attribute = attribute;
       entry.value = value;
@@ -4256,6 +4257,7 @@ void ScenarioStructuredFactSeededFlushReopenModelParity(const std::filesystem::p
       staged.emplace(key, std::move(entry));
       return;
     }
+    it->second.id = frame_id;
     it->second.value = value;
     it->second.metadata = metadata;
     it->second.version += 1;
@@ -4264,7 +4266,11 @@ void ScenarioStructuredFactSeededFlushReopenModelParity(const std::filesystem::p
   auto model_remove = [&](const std::string& entity, const std::string& attribute) {
     ensure_staged();
     const auto key = make_key(entity, attribute);
-    return staged.erase(key) > 0;
+    const bool removed = staged.erase(key) > 0;
+    if (removed) {
+      ++staged_next_id;  // ForgetFact persists a tombstone frame in the store.
+    }
+    return removed;
   };
 
   auto model_commit = [&]() {

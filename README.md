@@ -88,11 +88,102 @@ curl -s -X POST http://127.0.0.1:8080/ \
 | `index.start` | Start background indexing of a directory |
 | `index.status` | Poll indexing progress (state, phase, metrics) |
 | `index.stop` | Cancel a running index job |
+| `fact.add` | Add or update a structured entity-attribute-value fact at runtime |
+| `fact.get` | Read one structured fact revision by ID |
+| `fact.update` | Create a new revision that supersedes an existing fact |
+| `fact.delete` | Delete a fact revision by ID (pinned facts are guarded) |
+| `fact.pin` | Mark a fact revision as pinned via a new superseding revision |
+| `fact.history` | Return the supersedes chain for a fact revision |
 | `fact.search` | Search structured entity-attribute-value facts |
 | `flush` | Force-flush pending writes to disk |
 | `blueprint.read` | Read an exported UE5 Blueprint JSON |
 | `blueprint.write` | Write modified Blueprint JSON (with backup) |
 | `blueprint.import` | Trigger Blueprint reimport into .uasset |
+
+### `fact.add` parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `entity` | string | required | Fact entity key, for example `cpp:AMyActor` |
+| `attribute` | string | required | Fact attribute key, for example `inherits` |
+| `value` | string | `""` | Fact value payload |
+| `metadata` | object | `{}` | Optional string-to-string metadata stored with the fact |
+
+### Fact lifecycle parameters
+
+| Method | Required params | Optional params |
+|--------|-----------------|-----------------|
+| `fact.get` | `id` | — |
+| `fact.update` | `id`, `value` | `metadata` |
+| `fact.delete` | `id` | — |
+| `fact.pin` | `id` | `pinned` (default `true`) |
+| `fact.history` | `id` | — |
+
+### Fact lifecycle
+
+Runtime facts are revisioned. `fact.update` and `fact.pin` do not mutate a fact in place: they create a new fact revision and set `supersedes -> old_id`. `fact.history` walks that revision chain. `fact.delete` marks a revision deleted; pinned facts are guarded and cannot be updated or deleted.
+
+Typical Hive flow:
+
+1. Add or discover the active fact with `fact.add` or `fact.search`.
+2. Read a specific revision with `fact.get`.
+3. Correct the value with `fact.update`.
+4. Protect the active revision with `fact.pin` if it must win future conflict resolution.
+5. Inspect the audit trail with `fact.history`.
+
+Example: add a fact
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"fact.add","params":{
+    "entity":"cfg:rate_limit",
+    "attribute":"value",
+    "value":"10/s",
+    "metadata":{"source":"hive","kind":"runtime_eav"}
+  }}'
+```
+
+Example: update an existing revision
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":2,"method":"fact.update","params":{
+    "id":42,
+    "value":"100/s",
+    "metadata":{"source":"hive_correction"}
+  }}'
+```
+
+Example: pin the active revision
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":3,"method":"fact.pin","params":{"id":43}}'
+```
+
+Example: inspect revision history
+
+```bash
+curl -s -X POST http://127.0.0.1:8080/ \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":4,"method":"fact.history","params":{"id":44}}'
+```
+
+Fact objects returned by `fact.get`, `fact.search`, and `fact.history` include:
+
+| Field | Meaning |
+|-------|---------|
+| `id` | Stable fact revision ID (backed by store frame ID) |
+| `entity` / `attribute` / `value` | EAV triple |
+| `version` | Structured-memory version for the visible revision |
+| `pinned` | Whether the revision is protected from update/delete |
+| `deleted` | Whether this revision was deleted |
+| `supersedes` | Previous revision ID, if any |
+| `timestamp_ms` | Revision timestamp |
+| `metadata` | Arbitrary string-to-string metadata |
 
 ### `index.start` parameters
 

@@ -52,7 +52,15 @@ Returns entity-attribute-value facts extracted from code. Use it to quickly dete
 }}
 ```
 
-The response contains a `facts` array, each with `entity`, `attribute`, `value`, and `id` fields.
+The response contains a `facts` array. Fact objects include:
+- `id` — stable fact revision ID
+- `entity`, `attribute`, `value` — the EAV triple
+- `version` — visible revision version
+- `pinned` — whether the fact is protected from update/delete
+- `deleted` — whether this specific revision was deleted
+- `supersedes` — previous revision ID, if any
+- `timestamp_ms` — revision timestamp
+- `metadata` — string-to-string metadata map
 
 **Entity prefixes:**
 - `cpp:ClassName` — C++ classes/functions (UE5 + OlivaVanilla)
@@ -79,6 +87,49 @@ The response contains a `facts` array, each with `entity`, `attribute`, `value`,
 {"jsonrpc":"2.0","id":3,"method":"fact.search","params":{"entity_prefix":"cpp:ULyraHeroComponent","limit":10}}
 ```
 
+#### 2a. Fact lifecycle — runtime knowledge maintenance
+
+Use these methods when the agent needs to maintain or correct structured facts at runtime instead of only reading them.
+
+- `fact.add` — add a new fact
+- `fact.get` — load one fact revision by ID
+- `fact.update` — create a new revision that supersedes an existing fact
+- `fact.pin` — create a pinned revision that should win conflict resolution
+- `fact.delete` — delete a fact revision by ID (pinned facts are guarded)
+- `fact.history` — inspect the supersedes chain for a fact
+
+Important behavior:
+- `fact.update` and `fact.pin` do not modify a fact in place; they create a new revision with a new `id`
+- `fact.history` returns the revision chain from the requested revision backward
+- pinned facts cannot be updated or deleted through the runtime API
+
+Examples:
+
+```json
+{"jsonrpc":"2.0","id":10,"method":"fact.add","params":{
+  "entity":"cfg:rate_limit",
+  "attribute":"value",
+  "value":"10/s",
+  "metadata":{"source":"hive","kind":"runtime_eav"}
+}}
+```
+
+```json
+{"jsonrpc":"2.0","id":11,"method":"fact.update","params":{
+  "id":42,
+  "value":"100/s",
+  "metadata":{"source":"hive_correction"}
+}}
+```
+
+```json
+{"jsonrpc":"2.0","id":12,"method":"fact.pin","params":{"id":43}}
+```
+
+```json
+{"jsonrpc":"2.0","id":13,"method":"fact.history","params":{"id":44}}
+```
+
 #### 3. `answer.generate` — RAG-augmented answer with citations
 
 Performs a recall, assembles context, and generates a detailed answer via local LLM with citations to source files. Use for complex architectural questions.
@@ -103,5 +154,7 @@ The response contains `answer` (text) and `citations` (array with `relative_path
    - Which base classes are used
    - How Input is connected, which GameplayAbilities/Tags are used
 2. **fact.search** — quickly determine inheritance hierarchies and dependencies of the classes you are interested in
-3. **answer.generate** — ask an architectural question if recall did not provide enough context
-4. **Iterate** — after each significant decision, verify via recall that you are not diverging from project patterns
+3. **fact.get / fact.history** — when the task involves runtime corrections or dedupe, inspect the active fact revision before changing it
+4. **fact.update / fact.pin** — use revisions instead of overwriting facts mentally; corrections and protected facts should be explicit
+5. **answer.generate** — ask an architectural question if recall did not provide enough context
+6. **Iterate** — after each significant decision, verify via recall that you are not diverging from project patterns
