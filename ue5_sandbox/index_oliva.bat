@@ -10,6 +10,8 @@ REM  enrich_llm   = true   (~3K chunks — LLM extracts semantics)
 REM  resume       = false  (full re-index to pick up enriched facts)
 REM ============================================================
 
+set CHECKPOINT_NAMESPACE=oliva_code
+
 echo ============================================================
 echo  Oliva Indexing with Regex + LLM Enrichment
 echo  Target: j:\UE4\Projects\perforce_DESKTOP-UGMULAU_trunk_1659\Oliva
@@ -24,7 +26,7 @@ echo.
 REM --- index.start: begins background indexing ---
 curl -s -X POST http://127.0.0.1:8080/ ^
   -H "Content-Type: application/json" ^
-  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"index.start\",\"params\":{\"repo_root\":\"j:/UE4/Projects/perforce_DESKTOP-UGMULAU_trunk_1659/Oliva\",\"resume\":false,\"flush_every_chunks\":131072,\"ingest_batch_size\":1,\"include_extensions\":[\".h\",\".hpp\",\".cpp\",\".inl\",\".inc\"],\"enrich_regex\":true,\"enrich_llm\":true}}"
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"index.start\",\"params\":{\"repo_root\":\"j:/UE4/Projects/perforce_DESKTOP-UGMULAU_trunk_1659/Oliva\",\"resume\":false,\"checkpoint_namespace\":\"%CHECKPOINT_NAMESPACE%\",\"flush_every_chunks\":131072,\"ingest_batch_size\":1,\"include_extensions\":[\".h\",\".hpp\",\".cpp\",\".inl\",\".inc\"],\"enrich_regex\":true,\"enrich_llm\":true}}"
 
 echo.
 echo.

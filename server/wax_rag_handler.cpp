@@ -15,6 +15,7 @@
 #include <Poco/Pipe.h>
 #include <Poco/PipeStream.h>
 
+#include <cctype>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -49,6 +50,26 @@ constexpr const char* kOrchIngestConcurrencyEnv = "WAXCPP_ORCH_INGEST_CONCURRENC
 constexpr const char* kOrchIngestBatchSizeEnv = "WAXCPP_ORCH_INGEST_BATCH_SIZE";
 constexpr const char* kAutoFlushIntervalEnv = "WAXCPP_AUTO_FLUSH_INTERVAL_MS";
 constexpr std::uint64_t kDefaultAutoFlushIntervalMs = 30000;  // 30 seconds
+
+bool IsSafeCheckpointNamespace(std::string_view value) {
+    if (value.empty()) {
+        return true;
+    }
+    for (const unsigned char ch : value) {
+        if (!(std::isalnum(ch) || ch == '_' || ch == '-')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+std::filesystem::path ResolveIndexCheckpointPath(const std::filesystem::path& store_path,
+                                                 std::string_view checkpoint_namespace) {
+    if (checkpoint_namespace.empty()) {
+        return store_path.string() + ".index.checkpoint";
+    }
+    return store_path.string() + ".index." + std::string(checkpoint_namespace) + ".checkpoint";
+}
 
 int ParsePositiveIntEnv(const char* name, int fallback) {
     const auto raw = EnvString(name);
@@ -438,7 +459,8 @@ PromptBuildResult BuildAnswerPrompt(const std::string& query,
 WaxRAGHandler::WaxRAGHandler(const std::filesystem::path& store_path,
                              waxcpp::RuntimeModelsConfig runtime_models,
                              std::unique_ptr<LlamaCppGenerationClient> generation_client_override)
-    : index_job_manager_(store_path.string() + ".index.checkpoint"),
+    : store_path_(store_path),
+      index_job_manager_(ResolveIndexCheckpointPath(store_path, "")),
       runtime_models_(std::move(runtime_models)) {
     if (runtime_models_.generation_model.runtime.empty() &&
         runtime_models_.generation_model.model_path.empty() &&
@@ -1326,6 +1348,12 @@ std::string WaxRAGHandler::handle_index_start(const Poco::JSON::Object::Ptr& par
         return "Missing required parameter 'repo_root'";
     }
     const bool resume_requested = (params.isNull() ? false : params->optValue<bool>("resume", false));
+    const std::string checkpoint_namespace =
+        (params.isNull() ? "" : params->optValue<std::string>("checkpoint_namespace", ""));
+    if (!IsSafeCheckpointNamespace(checkpoint_namespace)) {
+        return "Error: checkpoint_namespace may only contain letters, digits, '_' and '-'";
+    }
+    const auto checkpoint_path = ResolveIndexCheckpointPath(store_path_, checkpoint_namespace);
     int flush_every_chunks_param = static_cast<int>(kIndexFlushEveryChunks);
     int ingest_batch_size_param = 1;
     int max_files_param = 0;
@@ -1456,7 +1484,9 @@ std::string WaxRAGHandler::handle_index_start(const Poco::JSON::Object::Ptr& par
         std::shared_ptr<std::atomic<bool>> cancel_flag = std::make_shared<std::atomic<bool>>(false);
         {
             std::lock_guard<std::mutex> lock(mutex_);
-            const bool started = index_job_manager_.Start(std::filesystem::path(repo_root), resume_requested);
+            const bool started = index_job_manager_.Start(std::filesystem::path(repo_root),
+                                                         resume_requested,
+                                                         checkpoint_path);
             if (!started) {
                 return "Error: index job is already running";
             }

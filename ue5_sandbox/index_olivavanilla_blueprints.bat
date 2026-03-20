@@ -18,6 +18,7 @@ REM ============================================================
 set UE_EDITOR=J:\UE5.2SRC\Engine\Binaries\Win64\UnrealEditor-Cmd.exe
 set UPROJECT=J:\UE4\Projects\OlivaVanilla\LyraStarterGame.uproject
 set EXPORT_DIR=J:\UE4\Projects\OlivaVanilla\Saved\BlueprintExports
+set CHECKPOINT_NAMESPACE=olivavanilla_blueprints
 
 echo ============================================================
 echo  OlivaVanilla Blueprint RAG Pipeline
@@ -60,7 +61,7 @@ echo.
 
 curl -s -X POST http://127.0.0.1:8080/ ^
   -H "Content-Type: application/json" ^
-  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"index.start\",\"params\":{\"repo_root\":\"%EXPORT_DIR:\=/%\",\"resume\":false,\"flush_every_chunks\":1000,\"ingest_batch_size\":1,\"target_tokens\":3000,\"max_chunks\":0,\"include_extensions\":[\".bpl_json\"],\"exclude_dirs\":[],\"enrich_regex\":false,\"enrich_llm\":true}}"
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"index.start\",\"params\":{\"repo_root\":\"%EXPORT_DIR:\=/%\",\"resume\":false,\"checkpoint_namespace\":\"%CHECKPOINT_NAMESPACE%\",\"flush_every_chunks\":1000,\"ingest_batch_size\":1,\"target_tokens\":3000,\"max_chunks\":0,\"include_extensions\":[\".bpl_json\"],\"exclude_dirs\":[],\"enrich_regex\":false,\"enrich_llm\":true}}"
 
 echo.
 echo.

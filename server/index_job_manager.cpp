@@ -86,10 +86,21 @@ IndexJobStatus IndexJobManager::status() const {
   return status_;
 }
 
-bool IndexJobManager::Start(const std::filesystem::path& repo_root, bool resume_requested) {
+bool IndexJobManager::Start(const std::filesystem::path& repo_root,
+                            bool resume_requested,
+                            const std::filesystem::path& checkpoint_path) {
   std::lock_guard<std::mutex> lock(mutex_);
   if (status_.state == IndexJobState::kRunning) {
     return false;
+  }
+
+  if (checkpoint_path_ != checkpoint_path) {
+    checkpoint_path_ = checkpoint_path;
+    status_ = IndexJobStatus{};
+    status_.checkpoint_path = checkpoint_path_;
+    LoadLocked();
+  } else {
+    status_.checkpoint_path = checkpoint_path_;
   }
 
   const auto now_ms = NowMs();
