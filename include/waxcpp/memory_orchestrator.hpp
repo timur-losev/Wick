@@ -44,10 +44,10 @@ class MemoryOrchestrator {
                                        bool include_pending = false) const;
 
   // ── Structured memory (v1 entity/attribute/value) ──────────
-  void RememberFact(const std::string& entity,
-                    const std::string& attribute,
-                    const std::string& value,
-                    const Metadata& metadata = {});
+  std::uint64_t RememberFact(const std::string& entity,
+                             const std::string& attribute,
+                             const std::string& value,
+                             const Metadata& metadata = {});
   bool ForgetFact(const std::string& entity, const std::string& attribute);
   std::optional<StructuredMemoryEntry> GetFactById(std::uint64_t fact_id);
   std::uint64_t UpdateFactById(std::uint64_t fact_id,

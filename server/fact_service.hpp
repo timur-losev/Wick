@@ -20,10 +20,10 @@ public:
     explicit FactService(waxcpp::MemoryOrchestrator& orchestrator)
         : orchestrator_(orchestrator) {}
 
-    void AddFact(const std::string& entity,
-                 const std::string& attribute,
-                 const std::string& value,
-                 const waxcpp::Metadata& metadata = {});
+    [[nodiscard]] std::uint64_t AddFact(const std::string& entity,
+                                        const std::string& attribute,
+                                        const std::string& value,
+                                        const waxcpp::Metadata& metadata = {});
 
     [[nodiscard]] std::optional<waxcpp::StructuredMemoryEntry> GetFact(std::uint64_t fact_id);
     [[nodiscard]] FactMutationResult UpdateFact(std::uint64_t fact_id,

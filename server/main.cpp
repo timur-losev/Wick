@@ -9,16 +9,24 @@
 #include <Poco/Net/HTTPServerResponse.h>
 #include <Poco/Net/HTTPServerParams.h>
 #include <Poco/Net/ServerSocket.h>
+#include <Poco/Dynamic/Var.h>
+#include <Poco/JSON/Object.h>
+#include <Poco/JSON/Parser.h>
 #include <Poco/Util/ServerApplication.h>
+#include <Poco/Util/Option.h>
+#include <Poco/Util/OptionSet.h>
 #include <Poco/Logger.h>
 #include <Poco/AutoPtr.h>
 #include <Poco/ConsoleChannel.h>
 #include <Poco/FormattingChannel.h>
 #include <Poco/PatternFormatter.h>
+#include <cstdlib>
 #include <chrono>
 #include <iterator>
 #include <iostream>
+#include <optional>
 #include <string>
+#include <string_view>
 
 using namespace Poco::Net;
 using namespace Poco::Util;
@@ -28,16 +36,164 @@ double SteadyNowMs() {
     return std::chrono::duration<double, std::milli>(
         std::chrono::steady_clock::now().time_since_epoch()).count();
 }
+
+bool IsTruthyLogValue(std::string_view value) {
+    const auto normalized = waxcpp::server::ToAsciiLower(value);
+    return normalized == "1" || normalized == "true" || normalized == "on" || normalized == "verbose";
+}
+
+bool IsFalsyLogValue(std::string_view value) {
+    const auto normalized = waxcpp::server::ToAsciiLower(value);
+    return normalized == "0" || normalized == "false" || normalized == "off" || normalized == "normal" ||
+           normalized == "info" || normalized == "information";
+}
+
+bool ResolveVerboseRpcLoggingFromEnv() {
+    const auto rpc_log = waxcpp::server::EnvString("WAXCPP_RPC_LOG");
+    if (rpc_log.has_value()) {
+        return IsTruthyLogValue(*rpc_log);
+    }
+    const auto server_log = waxcpp::server::EnvString("WAXCPP_SERVER_LOG");
+    if (server_log.has_value()) {
+        return IsTruthyLogValue(*server_log);
+    }
+    return false;
+}
+
+void SetProcessEnv(const char* name, const char* value) {
+#if defined(_WIN32)
+    _putenv_s(name, value);
+#else
+    setenv(name, value, 1);
+#endif
+}
+
+std::optional<Poco::JSON::Object::Ptr> ParseJsonObject(std::string_view text) {
+    try {
+        Poco::JSON::Parser parser;
+        const Poco::Dynamic::Var parsed = parser.parse(std::string(text));
+        Poco::JSON::Object::Ptr object = parsed.extract<Poco::JSON::Object::Ptr>();
+        if (object.isNull()) {
+            return std::nullopt;
+        }
+        return object;
+    } catch (...) {
+        return std::nullopt;
+    }
+}
+
+std::string JsonStringValue(const Poco::JSON::Object::Ptr& object, const std::string& key) {
+    if (object.isNull() || !object->has(key)) {
+        return {};
+    }
+    try {
+        return object->optValue<std::string>(key, "");
+    } catch (...) {
+        return {};
+    }
+}
+
+std::string SummarizeRpcRequest(const waxcpp::server::JsonRequest& request) {
+    const auto& params = request.params;
+    if (request.method == "fact.add") {
+        return "entity=" + params->optValue<std::string>("entity", "") +
+               " attribute=" + params->optValue<std::string>("attribute", "") +
+               " value=" + params->optValue<std::string>("value", "");
+    }
+    if (request.method == "fact.get" || request.method == "fact.delete" || request.method == "fact.history") {
+        return "id=" + std::to_string(params->optValue<Poco::Int64>("id", -1));
+    }
+    if (request.method == "fact.update") {
+        return "id=" + std::to_string(params->optValue<Poco::Int64>("id", -1)) +
+               " value=" + params->optValue<std::string>("value", "");
+    }
+    if (request.method == "fact.pin") {
+        return "id=" + std::to_string(params->optValue<Poco::Int64>("id", -1)) +
+               " pinned=" + std::string(params->optValue<bool>("pinned", true) ? "true" : "false");
+    }
+    if (request.method == "fact.search") {
+        return "entity_prefix=" + params->optValue<std::string>("entity_prefix", "") +
+               " limit=" + std::to_string(params->optValue<int>("limit", 0));
+    }
+    if (request.method == "recall" || request.method == "answer.generate") {
+        return "query=\"" + params->optValue<std::string>("query", "") + "\"";
+    }
+    if (request.method == "remember") {
+        return "content_len=" + std::to_string(params->optValue<std::string>("content", "").size());
+    }
+    if (request.method == "index.start") {
+        return "repo_root=" + params->optValue<std::string>("repo_root", "") +
+               " resume=" + std::string(params->optValue<bool>("resume", false) ? "true" : "false");
+    }
+    return {};
+}
+
+std::string SummarizeRpcResponse(const std::string& method, const std::string& result) {
+    const auto parsed = ParseJsonObject(result);
+    if (!parsed.has_value()) {
+        return {};
+    }
+    const auto& obj = *parsed;
+
+    if (method == "fact.add") {
+        if (!obj->has("fact")) {
+            return {};
+        }
+        const auto fact = obj->getObject("fact");
+        return "id=" + std::to_string(obj->optValue<Poco::Int64>("id", -1)) +
+               " value=" + JsonStringValue(fact, "value");
+    }
+    if (method == "fact.get") {
+        if (!obj->has("fact")) {
+            return {};
+        }
+        const auto fact = obj->getObject("fact");
+        return "id=" + std::to_string(obj->optValue<Poco::Int64>("id", -1)) +
+               " value=" + JsonStringValue(fact, "value");
+    }
+    if (method == "fact.update") {
+        return "id=" + std::to_string(obj->optValue<Poco::Int64>("id", -1)) +
+               " previous_id=" + std::to_string(obj->optValue<Poco::Int64>("previous_id", -1));
+    }
+    if (method == "fact.pin") {
+        return "id=" + std::to_string(obj->optValue<Poco::Int64>("id", -1)) +
+               " previous_id=" + std::to_string(obj->optValue<Poco::Int64>("previous_id", -1));
+    }
+    if (method == "fact.delete") {
+        return "id=" + std::to_string(obj->optValue<Poco::Int64>("id", -1)) +
+               " deleted=" + std::string(obj->optValue<bool>("deleted", false) ? "true" : "false");
+    }
+    if (method == "fact.history") {
+        return "id=" + std::to_string(obj->optValue<Poco::Int64>("id", -1)) +
+               " count=" + std::to_string(obj->optValue<int>("count", 0));
+    }
+    if (method == "fact.search") {
+        return "count=" + std::to_string(obj->optValue<int>("count", 0));
+    }
+    if (method == "recall") {
+        return "count=" + std::to_string(obj->optValue<int>("count", 0)) +
+               " total_tokens=" + std::to_string(obj->optValue<int>("total_tokens", 0));
+    }
+    if (method == "answer.generate") {
+        return "context_items_used=" + std::to_string(obj->optValue<int>("context_items_used", 0)) +
+               " total_context_tokens=" + std::to_string(obj->optValue<int>("total_context_tokens", 0));
+    }
+    if (method == "index.start") {
+        return "status=" + JsonStringValue(obj, "status");
+    }
+    return {};
+}
 }  // namespace
 
 class RAGRequestHandler : public HTTPRequestHandler {
 public:
-    RAGRequestHandler(waxcpp::server::WaxRAGHandler& handler)
-        : handler_(handler) {}
+    RAGRequestHandler(waxcpp::server::WaxRAGHandler& handler, bool verbose_rpc_logging)
+        : handler_(handler),
+          verbose_rpc_logging_(verbose_rpc_logging) {}
 
     void handleRequest(HTTPServerRequest& request, HTTPServerResponse& response) override {
+        std::string body;
         try {
-            std::string body;
             std::istream& is = request.stream();
             std::copy(std::istreambuf_iterator<char>(is),
                      std::istreambuf_iterator<char>(),
@@ -47,7 +203,14 @@ public:
             auto json_request = waxcpp::server::parse_json_rpc(body);
 
             const auto t0 = SteadyNowMs();
-            std::cerr << "[HTTP] >> " << json_request.method << std::endl;
+            if (verbose_rpc_logging_) {
+                std::cerr << "[RPC] >> id=" << json_request.id
+                          << " method=" << json_request.method << std::endl;
+                const auto request_summary = SummarizeRpcRequest(json_request);
+                if (!request_summary.empty()) {
+                    std::cerr << "[RPC] .. " << request_summary << std::endl;
+                }
+            }
 
             std::string result;
             if (json_request.method == "remember") {
@@ -89,9 +252,20 @@ public:
             }
 
             const auto elapsed = SteadyNowMs() - t0;
-            std::cerr << "[HTTP] << " << json_request.method
-                      << " done in " << static_cast<int>(elapsed) << " ms"
-                      << " (response " << result.size() << " bytes)" << std::endl;
+            if (verbose_rpc_logging_) {
+                std::cerr << "[RPC] << id=" << json_request.id
+                          << " method=" << json_request.method
+                          << " done in " << static_cast<int>(elapsed) << " ms"
+                          << " (response " << result.size() << " bytes)" << std::endl;
+                const auto response_summary = SummarizeRpcResponse(json_request.method, result);
+                if (!response_summary.empty()) {
+                    std::cerr << "[RPC] .. " << response_summary << std::endl;
+                }
+            } else {
+                std::cerr << "[HTTP] << " << json_request.method
+                          << " done in " << static_cast<int>(elapsed) << " ms"
+                          << " (response " << result.size() << " bytes)" << std::endl;
+            }
 
             // Отправляем JSON-RPC ответ
             response.setContentType("application/json");
@@ -99,7 +273,14 @@ public:
             response.send() << result;
 
         } catch (const std::exception& e) {
-            std::cerr << "[HTTP] !! exception: " << e.what() << std::endl;
+            if (verbose_rpc_logging_) {
+                std::cerr << "[RPC] !! exception: " << e.what() << std::endl;
+                if (!body.empty()) {
+                    std::cerr << "[RPC] .. raw request bytes=" << body.size() << std::endl;
+                }
+            } else {
+                std::cerr << "[HTTP] !! exception: " << e.what() << std::endl;
+            }
             response.setStatus(HTTPResponse::HTTP_INTERNAL_SERVER_ERROR);
             response.send() << "{\"error\":\"" << waxcpp::server::JsonEscape(e.what()) << "\"}";
         }
@@ -107,23 +288,50 @@ public:
 
 private:
     waxcpp::server::WaxRAGHandler& handler_;
+    bool verbose_rpc_logging_ = false;
 };
 
 class RAGRequestHandlerFactory : public HTTPRequestHandlerFactory {
 public:
-    RAGRequestHandlerFactory(waxcpp::server::WaxRAGHandler& handler)
-        : handler_(handler) {}
+    RAGRequestHandlerFactory(waxcpp::server::WaxRAGHandler& handler, bool verbose_rpc_logging)
+        : handler_(handler),
+          verbose_rpc_logging_(verbose_rpc_logging) {}
 
     HTTPRequestHandler* createRequestHandler(const HTTPServerRequest&) override {
-        return new RAGRequestHandler(handler_);
+        return new RAGRequestHandler(handler_, verbose_rpc_logging_);
     }
 
 private:
     waxcpp::server::WaxRAGHandler& handler_;
+    bool verbose_rpc_logging_ = false;
 };
 
 class RAGServer : public ServerApplication {
 protected:
+    void defineOptions(Poco::Util::OptionSet& options) override {
+        ServerApplication::defineOptions(options);
+        options.addOption(Poco::Util::Option("rpc-log", "", "Set RPC log mode. Use 'verbose' to log request/response bodies.")
+                              .required(false)
+                              .repeatable(false)
+                              .argument("level"));
+        options.addOption(Poco::Util::Option("log", "", "Alias for rpc-log. Use 'verbose' to log RPC request/response bodies.")
+                              .required(false)
+                              .repeatable(false)
+                              .argument("level"));
+    }
+
+    void handleOption(const std::string& name, const std::string& value) override {
+        if (name == "rpc-log" || name == "log") {
+            if (!IsTruthyLogValue(value) && !IsFalsyLogValue(value)) {
+                throw std::runtime_error("invalid --rpc-log value: " + value + " (expected verbose|normal|info|off|true|false|1|0)");
+            }
+            verbose_rpc_logging_ = IsTruthyLogValue(value);
+            SetProcessEnv("WAXCPP_SERVER_LOG", verbose_rpc_logging_ ? "1" : "0");
+            return;
+        }
+        ServerApplication::handleOption(name, value);
+    }
+
     int main(const std::vector<std::string>& args) override {
         (void)args;
         // Настройка логирования
@@ -133,6 +341,7 @@ protected:
         Poco::AutoPtr<Poco::FormattingChannel> logChannel = new Poco::FormattingChannel(formatter, channel);
         logger.setChannel(logChannel);
         logger.setLevel("information");
+        logger.information("RPC request/response logging: " + std::string(verbose_rpc_logging_ ? "verbose" : "normal"));
 
         // Параметры сервера
         unsigned short port = static_cast<unsigned short>(config().getUInt("port", 8080));
@@ -220,7 +429,7 @@ protected:
                            std::string(handler.IsFts5Active() ? "enabled (SQLite)" : "disabled (brute-force TF-IDF)"));
 
         // Запуск сервера
-        HTTPServer server(new RAGRequestHandlerFactory(handler), socket, params);
+        HTTPServer server(new RAGRequestHandlerFactory(handler, verbose_rpc_logging_), socket, params);
         server.start();
 
         logger.information("WAX RAG server started on port %hu", port);
@@ -230,6 +439,9 @@ protected:
         server.stop();
         return Application::EXIT_OK;
     }
+
+private:
+    bool verbose_rpc_logging_ = ResolveVerboseRpcLoggingFromEnv();
 };
 
 int main(int argc, char** argv) {

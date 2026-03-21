@@ -41,6 +41,7 @@ class IndexJobManager {
   explicit IndexJobManager(std::filesystem::path checkpoint_path);
 
   [[nodiscard]] IndexJobStatus status() const;
+  [[nodiscard]] bool Start(const std::filesystem::path& repo_root, bool resume_requested);
   [[nodiscard]] bool Start(const std::filesystem::path& repo_root,
                            bool resume_requested,
                            const std::filesystem::path& checkpoint_path);
@@ -51,11 +52,14 @@ class IndexJobManager {
                                     std::uint64_t indexed_chunks,
                                     std::uint64_t committed_chunks);
   [[nodiscard]] bool SetPhase(std::string phase);
-  void SetTotalChunks(std::uint64_t total);
+ void SetTotalChunks(std::uint64_t total);
   [[nodiscard]] bool Stop();
   [[nodiscard]] bool Fail(std::string error);
 
  private:
+  [[nodiscard]] bool StartLocked(const std::filesystem::path& repo_root,
+                                 bool resume_requested,
+                                 const std::filesystem::path& checkpoint_path);
   static std::uint64_t NowMs();
   void PersistLocked() const;
   void LoadLocked();

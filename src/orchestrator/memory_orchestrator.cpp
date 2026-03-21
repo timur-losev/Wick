@@ -1900,10 +1900,10 @@ std::vector<WaxFrameMeta> MemoryOrchestrator::FrameMetas(const std::vector<std::
   return out;
 }
 
-void MemoryOrchestrator::RememberFact(const std::string& entity,
-                                      const std::string& attribute,
-                                      const std::string& value,
-                                      const Metadata& metadata) {
+std::uint64_t MemoryOrchestrator::RememberFact(const std::string& entity,
+                                               const std::string& attribute,
+                                               const std::string& value,
+                                               const Metadata& metadata) {
   std::lock_guard<std::mutex> lock(mutex_);
   ThrowIfClosed(closed_);
   last_write_activity_ms_ = NowMs();
@@ -1938,6 +1938,7 @@ void MemoryOrchestrator::RememberFact(const std::string& entity,
     preview_entry.value = value;
     structured_text_index_.StageIndex(kStructuredMemoryFrameIdBase + fact_id, StructuredFactPreviewText(preview_entry));
   }
+  return fact_id;
 }
 
 bool MemoryOrchestrator::ForgetFact(const std::string& entity, const std::string& attribute) {

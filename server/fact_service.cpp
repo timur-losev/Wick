@@ -5,11 +5,11 @@
 
 namespace waxcpp::server {
 
-void FactService::AddFact(const std::string& entity,
-                          const std::string& attribute,
-                          const std::string& value,
-                          const waxcpp::Metadata& metadata) {
-    orchestrator_.RememberFact(entity, attribute, value, metadata);
+std::uint64_t FactService::AddFact(const std::string& entity,
+                                   const std::string& attribute,
+                                   const std::string& value,
+                                   const waxcpp::Metadata& metadata) {
+    return orchestrator_.RememberFact(entity, attribute, value, metadata);
 }
 
 std::optional<waxcpp::StructuredMemoryEntry> FactService::GetFact(std::uint64_t fact_id) {

@@ -30,10 +30,10 @@ llama-server --model /path/to/model.gguf --host 127.0.0.1 --port 8004 --ctx-size
 ```bash
 export WAXCPP_LLAMA_CPP_ROOT=/path/to/llama-cpp
 export WAXCPP_GENERATION_MODEL=/path/to/model.gguf
-./build/bin/waxcpp_rag_server
+./build/bin/waxcpp_rag_server --rpc-log verbose
 ```
 
-The server starts on `http://127.0.0.1:8080` and communicates via JSON-RPC 2.0.
+The server starts on `http://127.0.0.1:8080` and communicates via JSON-RPC 2.0. Pass `--rpc-log verbose` to print every JSON-RPC request and response in the server output.
 
 ### 4. Index a codebase
 
@@ -88,7 +88,7 @@ curl -s -X POST http://127.0.0.1:8080/ \
 | `index.start` | Start background indexing of a directory |
 | `index.status` | Poll indexing progress (state, phase, metrics) |
 | `index.stop` | Cancel a running index job |
-| `fact.add` | Add or update a structured entity-attribute-value fact at runtime |
+| `fact.add` | Add or update a structured entity-attribute-value fact at runtime; returns JSON with `added`, `id`, and `fact` |
 | `fact.get` | Read one structured fact revision by ID |
 | `fact.update` | Create a new revision that supersedes an existing fact |
 | `fact.delete` | Delete a fact revision by ID (pinned facts are guarded) |
@@ -142,6 +142,12 @@ curl -s -X POST http://127.0.0.1:8080/ \
     "value":"10/s",
     "metadata":{"source":"hive","kind":"runtime_eav"}
   }}'
+```
+
+Response:
+
+```json
+{"added":true,"id":42,"fact":{"entity":"cfg:rate_limit","attribute":"value","value":"10/s"}}
 ```
 
 Example: update an existing revision
@@ -246,6 +252,7 @@ Example scripts for indexing UE5 projects are in `ue5_sandbox/`.
 | `WAXCPP_LLAMA_CPP_ROOT` | Path to llama.cpp binaries (required) |
 | `WAXCPP_GENERATION_MODEL` | Path to generation GGUF model |
 | `WAXCPP_SERVER_CONFIG` | Path to `server-runtime.json` |
+| `WAXCPP_RPC_LOG` | Enable RPC request/response logging (`verbose`); also set automatically by `--rpc-log verbose` |
 | `WAXCPP_SERVER_LOG` | Enable server logging (`1`) |
 | `WAXCPP_RECALL_LOG` | File path for recall request/response log |
 | `WAXCPP_AUTO_FLUSH_INTERVAL_MS` | Auto-flush interval in ms (default `30000`) |

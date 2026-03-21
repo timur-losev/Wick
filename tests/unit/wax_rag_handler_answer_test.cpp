@@ -333,10 +333,18 @@ void ScenarioFactLifecycleApisWorkAndPersist() {
 
     const auto add_reply = handler.handle_fact_add(
         build_fact_add_params("cpp:AMyActor", "inherits", "AActor", "hive"));
-    Require(add_reply == "OK", "fact.add failed: " + add_reply);
+    const auto add0 = ParseObject(add_reply);
+    Require(add0->optValue<bool>("added", false), "fact.add must report added=true");
+    const auto fact0_id = add0->optValue<Poco::Int64>("id", -1);
+    Require(fact0_id >= 0, "fact.add must return a valid id");
+    const auto add0_fact = add0->getObject("fact");
+    Require(!add0_fact.isNull(), "fact.add must include fact object");
+    Require(add0_fact->optValue<std::string>("entity", "") == "cpp:AMyActor", "fact.add entity mismatch");
+    Require(add0_fact->optValue<std::string>("attribute", "") == "inherits", "fact.add attribute mismatch");
+    Require(add0_fact->optValue<std::string>("value", "") == "AActor", "fact.add value mismatch");
     const auto first_fact = require_single_search_result(
         search_fact(handler, "cpp:AMyActor"), "cpp:AMyActor", "inherits", "AActor");
-    const auto fact0_id = first_fact->optValue<Poco::Int64>("id", -1);
+    Require(first_fact->optValue<Poco::Int64>("id", -1) == fact0_id, "fact.add id must match search result");
     Require(fact0_id >= 0, "initial fact id must be valid");
 
     const auto get0 = get_fact(handler, fact0_id);
@@ -404,7 +412,8 @@ void ScenarioFactLifecycleApisWorkAndPersist() {
 
     const auto second_add_reply = handler.handle_fact_add(
         build_fact_add_params("cfg:rate_limit", "value", "10/s", "hive"));
-    Require(second_add_reply == "OK", "second fact.add failed: " + second_add_reply);
+    const auto add1 = ParseObject(second_add_reply);
+    Require(add1->optValue<bool>("added", false), "second fact.add must report added=true");
     const auto rate_fact = require_single_search_result(
         search_fact(handler, "cfg:rate_limit"), "cfg:rate_limit", "value", "10/s");
     deleted_active_fact_id = rate_fact->optValue<Poco::Int64>("id", -1);

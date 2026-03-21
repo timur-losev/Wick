@@ -647,22 +647,31 @@ std::string WaxRAGHandler::handle_fact_add(const Poco::JSON::Object::Ptr& params
 
     const std::string entity = (params.isNull() ? "" : params->optValue<std::string>("entity", ""));
     if (entity.empty()) {
-        return "Missing required parameter 'entity'";
+        return "{\"error\":\"Missing required parameter 'entity'\"}";
     }
 
     const std::string attribute = (params.isNull() ? "" : params->optValue<std::string>("attribute", ""));
     if (attribute.empty()) {
-        return "Missing required parameter 'attribute'";
+        return "{\"error\":\"Missing required parameter 'attribute'\"}";
     }
 
     const std::string value = (params.isNull() ? "" : params->optValue<std::string>("value", ""));
     const auto metadata_map = ParseStringMetadataObject(params);
 
     try {
-        fact_service.AddFact(entity, attribute, value, metadata_map);
-        return "OK";
+        const auto fact_id = fact_service.AddFact(entity, attribute, value, metadata_map);
+        const auto fact = fact_service.GetFact(fact_id);
+        Poco::JSON::Object response;
+        response.set("added", true);
+        response.set("id", static_cast<Poco::Int64>(fact_id));
+        if (fact.has_value()) {
+            response.set("fact", FactService::ToJson(*fact));
+        }
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
     } catch (const std::exception& e) {
-        return std::string("Error: ") + e.what();
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
     }
 }
 
