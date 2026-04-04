@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================
-REM  Export OlivaVanilla Blueprints to .bpl_json (export only)
+REM  Export OlivaVanilla Blueprints + DataAssets to .bpl_json (export only)
 REM
 REM  Requires:
 REM    - OlivaVanilla project compiled with OlivaBlueprintRAG plugin
@@ -11,19 +11,20 @@ set UPROJECT=J:\UE4\Projects\OlivaVanilla\LyraStarterGame.uproject
 set EXPORT_DIR=J:\UE4\Projects\OlivaVanilla\Saved\BlueprintExports
 
 echo ============================================================
-echo  OlivaVanilla Blueprint Export (.bpl_json)
+echo  OlivaVanilla Asset Export (.bpl_json)
 echo ============================================================
 echo.
 
-echo Exporting Blueprints to .bpl_json ...
+echo Exporting Blueprints and DataAssets to .bpl_json ...
 echo   Editor:  %UE_EDITOR%
 echo   Project: %UPROJECT%
 echo   Output:  %EXPORT_DIR%
 echo.
 
 REM  -Root=/ scans ALL mount points (game + plugins), not just /Game
-REM  AssetRegistry already filters by UBlueprint class — no prefix needed.
-REM  Optional: -Prefix=BP_,B_Lyra  -PathContains=Blueprints  to narrow scope.
+REM  AssetRegistry filters by UBlueprint + UDataAsset classes.
+REM  This now includes input mapping contexts and other DataAssets.
+REM  Optional: -Prefix=BP_,B_Lyra,IMC_  -PathContains=Blueprints,Input  to narrow scope.
 "%UE_EDITOR%" "%UPROJECT%" -run=BlueprintGraphExport -Root=/ -ExportDir="%EXPORT_DIR%" -unattended -nop4
 
 if %ERRORLEVEL% NEQ 0 (

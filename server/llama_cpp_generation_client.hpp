@@ -5,10 +5,18 @@
 
 namespace waxcpp::server {
 
+enum class GenerationApiKind {
+  kLlamaCpp = 0,
+  kOpenAIResponses,
+  kOpenAICompatibleChatCompletions,
+};
+
 struct LlamaCppGenerationConfig {
+  GenerationApiKind api = GenerationApiKind::kLlamaCpp;
   std::string endpoint{};
   std::string api_key{};
   std::string model_path{};
+  std::string reasoning_effort = "low";
   int timeout_ms = 60000;
   int max_retries = 2;
   int retry_backoff_ms = 100;
@@ -32,7 +40,7 @@ class LlamaCppGenerationClient {
   [[nodiscard]] static std::string ParseGenerationResponse(const std::string& payload);
 
  private:
-  [[nodiscard]] static std::string BuildRequestBody(const LlamaCppGenerationRequest& request);
+  [[nodiscard]] std::string BuildRequestBody(const LlamaCppGenerationRequest& request) const;
   [[nodiscard]] std::string PerformRequest(const std::string& body) const;
   [[nodiscard]] std::string PerformRequestWithRetry(const std::string& body) const;
 

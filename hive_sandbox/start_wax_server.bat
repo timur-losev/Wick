@@ -19,8 +19,6 @@ REM --- Embedding (disabled by default; Qwen3-Coder may not expose /embedding) -
 REM To enable vector search, create a JSON config and set WAXCPP_SERVER_CONFIG.
 
 REM --- Server logging ---
-REM `--rpc-log verbose` is the primary switch; env stays as a fallback for older launches.
-set WAXCPP_RPC_LOG=verbose
 set WAXCPP_SERVER_LOG=1
 
 REM --- LLM enrichment logging (1=verbose prompts+responses, 0=compact one-liners) ---
@@ -45,7 +43,6 @@ set WAXCPP_RAG_SEARCH_TOP_K=12
 
 REM --- Orchestrator tuning for large repos ---
 REM set WAXCPP_ORCH_INGEST_CONCURRENCY=1
-set WAXCPP_ENRICH_LLM_CONCURRENCY=3
 REM set WAXCPP_ORCH_INGEST_BATCH_SIZE=32
 
 echo ============================================================
@@ -57,9 +54,9 @@ echo  llama-cpp root: %WAXCPP_LLAMA_CPP_ROOT%
 echo ============================================================
 echo.
 
-cd /d "G:\Proj\Wick\build\bin"
+cd /d "G:\Proj\Wick\build\bin\instance1"
 if exist waxcpp_rag_server.exe (
-  waxcpp_rag_server.exe --rpc-log verbose
+  waxcpp_rag_server.exe
 ) else (
-  waxcpp_rag_server_d.exe --rpc-log verbose
+  waxcpp_rag_server_d.exe
 )

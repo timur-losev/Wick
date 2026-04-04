@@ -239,7 +239,7 @@ Wick has built-in support for Unreal Engine 5 projects:
 | Source type | Extensions | Enrichment |
 |-------------|------------|------------|
 | C++ source | `.h`, `.hpp`, `.cpp`, `.inl`, `.inc` | Regex (UCLASS/UPROPERTY/UFUNCTION macros, class hierarchies) + optional LLM |
-| Blueprints | `.bpl_json` (exported via `BlueprintGraphExport` commandlet) | LLM (entity-attribute-value facts: calls, variables, events, inheritance) |
+| Blueprints / DataAssets | `.bpl_json` (exported via `BlueprintGraphExport` commandlet) | LLM (entity-attribute-value facts: calls, variables, events, mappings, references, inheritance) |
 
 Example scripts for indexing UE5 projects are in `ue5_sandbox/`.
 

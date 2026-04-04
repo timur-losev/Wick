@@ -8,7 +8,7 @@ You have access to a local RAG server called **WAX** that contains a fully index
 |--------|--------|-------------|
 | **UE5 Engine Source** | ~372,000 chunks, 55,530 files | Full C++ engine source (Runtime, Editor, Plugins) with regex enrichment (inheritance, UCLASS/UPROPERTY macros) |
 | **OlivaVanilla C++** | ~2,000 chunks | Project gameplay code (`.h`, `.cpp`) with LLM enrichment (semantic facts: purpose, calls, depends_on) |
-| **OlivaVanilla Blueprints** | ~5,400 facts | Exported Blueprint graphs (`.bpl_json`) — structured facts only (calls, has_variable, has_event, purpose, depends_on) |
+| **OlivaVanilla Blueprints** | ~5,400 facts | Exported Blueprint/DataAsset JSON (`.bpl_json`) — structured facts only (calls, has_variable, has_event, has_mapping, purpose, depends_on) |
 
 ### How to query the server
 

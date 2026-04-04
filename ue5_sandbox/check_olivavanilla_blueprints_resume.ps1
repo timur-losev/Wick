@@ -163,7 +163,7 @@ function Write-SectionHeader {
 
 $exportRootFull = [System.IO.Path]::GetFullPath($ExportRoot)
 $exportRootForward = $exportRootFull.TrimEnd([System.IO.Path]::DirectorySeparatorChar).Replace('\', '/')
-$scriptDataDir = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\build\bin\data'))
+$scriptDataDir = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\build\bin\base'))
 if ([string]::IsNullOrWhiteSpace($CheckpointFile)) {
     if ([string]::IsNullOrWhiteSpace($CheckpointNamespace)) {
         $CheckpointFile = Join-Path $scriptDataDir 'wax-server.mv2s.index.checkpoint'

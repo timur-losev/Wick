@@ -156,14 +156,8 @@ bool IndexJobManager::Complete(std::uint64_t scanned_files,
     return false;
   }
   status_.scanned_files = scanned_files;
-  // On resume, never decrease counters — a no-op resume must not wipe previous progress.
-  if (status_.resume_requested) {
-    status_.indexed_chunks = std::max(status_.indexed_chunks, indexed_chunks);
-    status_.committed_chunks = std::max(status_.committed_chunks, committed_chunks);
-  } else {
-    status_.indexed_chunks = indexed_chunks;
-    status_.committed_chunks = committed_chunks;
-  }
+  status_.indexed_chunks = indexed_chunks;
+  status_.committed_chunks = committed_chunks;
   status_.state = IndexJobState::kStopped;
   status_.phase = "completed";
   status_.updated_at_ms = NowMs();

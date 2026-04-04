@@ -77,6 +77,32 @@ int main() {
 
     {
       auto config = MakeBaseConfig(temp_dir);
+      config.generation_model.runtime = "openai";
+      config.generation_model.model_path = "gpt-5-mini";
+      config.llama_cpp_root.clear();
+      waxcpp::ValidateRuntimeModelsConfig(config);
+    }
+
+    {
+      auto config = MakeBaseConfig(temp_dir);
+      config.generation_model.runtime = "openai_compatible";
+      config.generation_model.model_path = "qwen/qwen3-coder";
+      config.llama_cpp_root.clear();
+      waxcpp::ValidateRuntimeModelsConfig(config);
+    }
+
+    {
+      auto config = MakeBaseConfig(temp_dir);
+      config.generation_model.runtime = "openai";
+      config.generation_model.model_path.clear();
+      config.llama_cpp_root.clear();
+      ExpectThrows("openai generation requires model id", [&]() {
+        waxcpp::ValidateRuntimeModelsConfig(config);
+      });
+    }
+
+    {
+      auto config = MakeBaseConfig(temp_dir);
       config.embedding_model.runtime = "libtorch";
       config.embedding_model.model_path = "embedder.pt";
       ExpectThrows("embedding runtime must not be libtorch", [&]() {
@@ -139,6 +165,10 @@ int main() {
             "runtime parse failed for llama_cpp");
     Require(waxcpp::ParseModelRuntimeKind("llama.cpp") == waxcpp::ModelRuntimeKind::kLlamaCpp,
             "runtime parse failed for llama.cpp");
+    Require(waxcpp::ParseModelRuntimeKind("openai") == waxcpp::ModelRuntimeKind::kOpenAI,
+            "runtime parse failed for openai");
+    Require(waxcpp::ParseModelRuntimeKind("openai_compatible") == waxcpp::ModelRuntimeKind::kOpenAICompatible,
+            "runtime parse failed for openai_compatible");
     Require(waxcpp::ParseModelRuntimeKind("torch") == waxcpp::ModelRuntimeKind::kLibTorch,
             "runtime parse failed for torch");
     Require(waxcpp::ParseModelRuntimeKind("disabled") == waxcpp::ModelRuntimeKind::kDisabled,

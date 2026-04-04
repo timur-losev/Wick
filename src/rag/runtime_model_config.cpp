@@ -27,6 +27,12 @@ ModelRuntimeKind ParseModelRuntimeKind(std::string_view runtime) {
   if (normalized == "llama_cpp" || normalized == "llama.cpp" || normalized == "llamacpp") {
     return ModelRuntimeKind::kLlamaCpp;
   }
+  if (normalized == "openai") {
+    return ModelRuntimeKind::kOpenAI;
+  }
+  if (normalized == "openai_compatible" || normalized == "openai-compatible") {
+    return ModelRuntimeKind::kOpenAICompatible;
+  }
   if (normalized == "libtorch" || normalized == "torch") {
     return ModelRuntimeKind::kLibTorch;
   }
@@ -43,11 +49,19 @@ bool IsGgufPath(std::string_view path) {
 
 void ValidateRuntimeModelsConfig(const RuntimeModelsConfig& config) {
   const auto generation_runtime = ParseModelRuntimeKind(config.generation_model.runtime);
-  if (generation_runtime != ModelRuntimeKind::kLlamaCpp) {
-    throw std::runtime_error("generation_model.runtime must be llama_cpp");
+  if (generation_runtime == ModelRuntimeKind::kUnknown ||
+      generation_runtime == ModelRuntimeKind::kDisabled ||
+      generation_runtime == ModelRuntimeKind::kLibTorch) {
+    throw std::runtime_error(
+        "generation_model.runtime must be one of llama_cpp, openai, openai_compatible");
   }
-  if (!IsGgufPath(config.generation_model.model_path)) {
-    throw std::runtime_error("generation_model.model_path must point to a .gguf model");
+  if (generation_runtime == ModelRuntimeKind::kLlamaCpp) {
+    if (!IsGgufPath(config.generation_model.model_path)) {
+      throw std::runtime_error("generation_model.model_path must point to a .gguf model");
+    }
+  } else if (config.generation_model.model_path.empty()) {
+    throw std::runtime_error(
+        "generation_model.model_path must be set to a remote model id when using openai runtimes");
   }
 
   const auto embedding_runtime = ParseModelRuntimeKind(config.embedding_model.runtime);

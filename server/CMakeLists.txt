@@ -7,10 +7,21 @@ if (NOT WAXCPP_BUILD_RAG_SERVER)
   return()
 endif()
 
-find_package(Poco CONFIG QUIET COMPONENTS Foundation Net Util JSON XML)
+if (WIN32)
+  set(WAXCPP_POCO_SSL_COMPONENT NetSSL_Win)
+  set(WAXCPP_POCO_SSL_TARGET Poco::NetSSLWin)
+else()
+  set(WAXCPP_POCO_SSL_COMPONENT NetSSL_OpenSSL)
+  set(WAXCPP_POCO_SSL_TARGET Poco::NetSSL)
+endif()
+
+find_package(Poco CONFIG QUIET COMPONENTS Foundation Net Util JSON XML ${WAXCPP_POCO_SSL_COMPONENT})
 
 if (NOT TARGET Poco::Foundation AND WAXCPP_SERVER_BUILD_FROM_SUBMODULE_POCO)
   if (EXISTS "${CMAKE_SOURCE_DIR}/third_party/poco/CMakeLists.txt")
+    if (WIN32)
+      set(ENABLE_NETSSL_WIN ON CACHE BOOL "Enable Poco NetSSL Win" FORCE)
+    endif()
     add_subdirectory("${CMAKE_SOURCE_DIR}/third_party/poco"
                      "${CMAKE_BINARY_DIR}/third_party/poco"
                      EXCLUDE_FROM_ALL)
@@ -21,13 +32,15 @@ if (NOT TARGET Poco::Foundation OR
     NOT TARGET Poco::Net OR
     NOT TARGET Poco::Util OR
     NOT TARGET Poco::JSON OR
-    NOT TARGET Poco::XML)
+    NOT TARGET Poco::XML OR
+    NOT TARGET ${WAXCPP_POCO_SSL_TARGET})
   message(FATAL_ERROR
-    "waxcpp_rag_server requires Poco targets (Foundation, Net, Util, JSON, XML).\n"
+    "waxcpp_rag_server requires Poco targets (Foundation, Net, Util, JSON, XML, NetSSL).\n"
     "Provide Poco via package config or initialize/build third_party/poco.")
 endif()
 
 add_executable(waxcpp_rag_server
+  bpl_json_compressor.cpp
   fact_service.cpp
   index_job_manager.cpp
   llama_cpp_generation_client.cpp
@@ -51,6 +64,7 @@ target_include_directories(waxcpp_rag_server PRIVATE
 target_link_libraries(waxcpp_rag_server PRIVATE
   waxcpp
   Poco::Net
+  ${WAXCPP_POCO_SSL_TARGET}
   Poco::Util
   Poco::JSON
   Poco::XML

@@ -7,12 +7,19 @@
 #include <Poco/JSON/Object.h>
 #include <Poco/JSON/Parser.h>
 #include <Poco/Net/HTTPClientSession.h>
+#include <Poco/Net/HTTPSClientSession.h>
 #include <Poco/Net/HTTPRequest.h>
 #include <Poco/Net/HTTPResponse.h>
+#include <Poco/Net/AcceptCertificateHandler.h>
+#include <Poco/Net/Context.h>
+#include <Poco/Net/SSLManager.h>
 #include <Poco/URI.h>
 
 #include <chrono>
 #include <iostream>
+#include <memory>
+#include <mutex>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <string_view>
@@ -50,29 +57,61 @@ std::string StripThinkingBlocks(const std::string& text) {
   return result;
 }
 
+std::optional<std::string> TryGetStringField(
+    const Poco::JSON::Object::Ptr& root,
+    const char* key) {
+  if (root.isNull() || !root->has(key)) {
+    return std::nullopt;
+  }
+  try {
+    return root->getValue<std::string>(key);
+  } catch (const Poco::Exception&) {
+    return std::nullopt;
+  }
+}
+
 std::string ExtractGenerationText(const Poco::JSON::Object::Ptr& root) {
   if (root.isNull()) {
     return {};
   }
-  if (root->has("content")) {
-    try {
-      return root->getValue<std::string>("content");
-    } catch (const Poco::Exception&) {
-      return {};
-    }
+  if (const auto output_text = TryGetStringField(root, "output_text");
+      output_text.has_value()) {
+    return *output_text;
   }
-  if (root->has("response")) {
+  if (root->has("output")) {
     try {
-      return root->getValue<std::string>("response");
+      const auto output = root->getArray("output");
+      if (!output.isNull()) {
+        for (unsigned int i = 0; i < output->size(); ++i) {
+          if (!output->isObject(i)) {
+            continue;
+          }
+          const auto item = output->getObject(i);
+          if (item.isNull()) {
+            continue;
+          }
+          if (item->has("content")) {
+            const auto content = item->getArray("content");
+            if (content.isNull()) {
+              continue;
+            }
+            for (unsigned int j = 0; j < content->size(); ++j) {
+              if (!content->isObject(j)) {
+                continue;
+              }
+              const auto content_item = content->getObject(j);
+              if (content_item.isNull()) {
+                continue;
+              }
+              if (const auto text = TryGetStringField(content_item, "text");
+                  text.has_value()) {
+                return *text;
+              }
+            }
+          }
+        }
+      }
     } catch (const Poco::Exception&) {
-      return {};
-    }
-  }
-  if (root->has("text")) {
-    try {
-      return root->getValue<std::string>("text");
-    } catch (const Poco::Exception&) {
-      return {};
     }
   }
   if (root->has("choices")) {
@@ -81,22 +120,85 @@ std::string ExtractGenerationText(const Poco::JSON::Object::Ptr& root) {
       if (!choices.isNull() && !choices->empty() && choices->isObject(0)) {
         const auto first = choices->getObject(0);
         if (!first.isNull()) {
-          if (first->has("text")) {
-            return first->getValue<std::string>("text");
+          if (const auto text = TryGetStringField(first, "text"); text.has_value()) {
+            return *text;
           }
           if (first->has("message")) {
             const auto message = first->getObject("message");
-            if (!message.isNull() && message->has("content")) {
-              return message->getValue<std::string>("content");
+            if (const auto content = TryGetStringField(message, "content");
+                content.has_value()) {
+              return *content;
             }
           }
         }
       }
     } catch (const Poco::Exception&) {
-      return {};
     }
   }
+  if (const auto content = TryGetStringField(root, "content"); content.has_value()) {
+    return *content;
+  }
+  if (const auto response = TryGetStringField(root, "response"); response.has_value()) {
+    return *response;
+  }
+  if (const auto text = TryGetStringField(root, "text"); text.has_value()) {
+    return *text;
+  }
   return {};
+}
+
+std::string ResolveOpenAIPath(const Poco::URI& uri, std::string_view resource) {
+  auto path = uri.getPath();
+  if (path.empty() || path == "/") {
+    return "/v1/" + std::string(resource);
+  }
+  const std::string suffix = "/" + std::string(resource);
+  if (path.ends_with(suffix)) {
+    return path;
+  }
+  if (path.back() == '/') {
+    path.pop_back();
+  }
+  return path + suffix;
+}
+
+std::string TruncateForError(std::string text, std::size_t limit = 1024) {
+  if (text.size() <= limit) {
+    return text;
+  }
+  text.resize(limit);
+  text += "...";
+  return text;
+}
+
+Poco::Net::Context::Ptr OpenAIClientContext() {
+  static std::once_flag init_flag;
+  static Poco::Net::Context::Ptr context;
+  std::call_once(init_flag, []() {
+    Poco::Net::initializeSSL();
+#if defined(_WIN32)
+    context = new Poco::Net::Context(
+        Poco::Net::Context::CLIENT_USE,
+        "",
+        Poco::Net::Context::VERIFY_RELAXED,
+        Poco::Net::Context::OPT_DEFAULTS);
+    context->requireMinimumProtocol(Poco::Net::Context::PROTO_TLSV1_2);
+#else
+    context = new Poco::Net::Context(
+        Poco::Net::Context::CLIENT_USE,
+        "",
+        "",
+        "",
+        Poco::Net::Context::VERIFY_RELAXED,
+        9,
+        true,
+        "ALL");
+#endif
+    Poco::SharedPtr<Poco::Net::InvalidCertificateHandler> cert_handler =
+        new Poco::Net::AcceptCertificateHandler(false);
+    Poco::Net::SSLManager::instance().initializeClient(nullptr, cert_handler, context);
+  });
+  return context;
 }
 
 }  // namespace
@@ -113,7 +215,12 @@ LlamaCppGenerationClient::LlamaCppGenerationClient(LlamaCppGenerationConfig conf
     throw std::runtime_error("llama.cpp generation retry_backoff_ms must be >= 0");
   }
   if (config_.request_fn == nullptr && config_.endpoint.empty()) {
-    throw std::runtime_error("llama.cpp generation client requires endpoint or request_fn");
+    throw std::runtime_error("generation client requires endpoint or request_fn");
+  }
+  if ((config_.api == GenerationApiKind::kOpenAIResponses ||
+       config_.api == GenerationApiKind::kOpenAICompatibleChatCompletions) &&
+      config_.model_path.empty()) {
+    throw std::runtime_error("remote generation client requires model identifier");
   }
 }
 
@@ -172,10 +279,39 @@ std::string LlamaCppGenerationClient::ParseGenerationResponse(const std::string&
   throw std::runtime_error("generation response does not contain supported text field");
 }
 
-std::string LlamaCppGenerationClient::BuildRequestBody(const LlamaCppGenerationRequest& request) {
+std::string LlamaCppGenerationClient::BuildRequestBody(const LlamaCppGenerationRequest& request) const {
   const bool use_chat = !request.system_prompt.empty();
   std::ostringstream out;
-  if (use_chat) {
+  if (config_.api == GenerationApiKind::kOpenAIResponses) {
+    out << "{\"model\":\"" << JsonEscape(config_.model_path) << "\"";
+    if (!request.system_prompt.empty()) {
+      out << ",\"instructions\":\"" << JsonEscape(request.system_prompt) << "\"";
+    }
+    out << ",\"input\":\"" << JsonEscape(request.prompt) << "\""
+        << ",\"max_output_tokens\":" << request.max_tokens
+        << ",\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"low\"}";
+    if (!config_.reasoning_effort.empty()) {
+      out << ",\"reasoning\":{\"effort\":\"" << JsonEscape(config_.reasoning_effort) << "\"}";
+    }
+    out << "}";
+  } else if (config_.api == GenerationApiKind::kOpenAICompatibleChatCompletions) {
+    out << "{\"model\":\"" << JsonEscape(config_.model_path) << "\""
+        << ",\"messages\":[";
+    bool need_comma = false;
+    if (!request.system_prompt.empty()) {
+      out << "{\"role\":\"system\",\"content\":\"" << JsonEscape(request.system_prompt) << "\"}";
+      need_comma = true;
+    }
+    if (need_comma) {
+      out << ",";
+    }
+    out << "{\"role\":\"user\",\"content\":\"" << JsonEscape(request.prompt) << "\"}"
+        << "]"
+        << ",\"max_completion_tokens\":" << request.max_tokens
+        << ",\"temperature\":" << request.temperature
+        << ",\"top_p\":" << request.top_p
+        << "}";
+  } else if (use_chat) {
     // OpenAI-compatible /v1/chat/completions format.
     // llama-server applies the model's chat template (Qwen3: <think> separation).
     out << "{\"messages\":["
@@ -202,23 +338,34 @@ std::string LlamaCppGenerationClient::PerformRequest(const std::string& body) co
     return config_.request_fn(body);
   }
 
-  // Detect chat vs completion format from request body.
-  const bool is_chat = body.find("\"messages\"") != std::string::npos;
-
   Poco::URI uri(config_.endpoint);
   std::string path;
-  if (is_chat) {
-    // Override path to /v1/chat/completions regardless of configured endpoint.
-    path = "/v1/chat/completions";
+  if (config_.api == GenerationApiKind::kOpenAIResponses) {
+    path = ResolveOpenAIPath(uri, "responses");
+  } else if (config_.api == GenerationApiKind::kOpenAICompatibleChatCompletions) {
+    path = ResolveOpenAIPath(uri, "chat/completions");
   } else {
-    path = uri.getPathEtc();
-    if (path.empty()) {
-      path = "/";
+    // Detect chat vs completion format from request body.
+    const bool is_chat = body.find("\"messages\"") != std::string::npos;
+    if (is_chat) {
+      // Override path to /v1/chat/completions regardless of configured endpoint.
+      path = "/v1/chat/completions";
+    } else {
+      path = uri.getPathEtc();
+      if (path.empty()) {
+        path = "/";
+      }
     }
   }
 
-  Poco::Net::HTTPClientSession session(uri.getHost(), uri.getPort());
-  session.setTimeout(Poco::Timespan(0, config_.timeout_ms * 1000));
+  std::unique_ptr<Poco::Net::HTTPClientSession> session;
+  if (uri.getScheme() == "https") {
+    session = std::make_unique<Poco::Net::HTTPSClientSession>(
+        uri.getHost(), uri.getPort(), OpenAIClientContext());
+  } else {
+    session = std::make_unique<Poco::Net::HTTPClientSession>(uri.getHost(), uri.getPort());
+  }
+  session->setTimeout(Poco::Timespan(0, config_.timeout_ms * 1000));
 
   Poco::Net::HTTPRequest request(Poco::Net::HTTPRequest::HTTP_POST, path, Poco::Net::HTTPMessage::HTTP_1_1);
   request.setContentType("application/json");
@@ -228,16 +375,18 @@ std::string LlamaCppGenerationClient::PerformRequest(const std::string& body) co
     request.set("Authorization", "Bearer " + config_.api_key);
   }
 
-  std::ostream& req_stream = session.sendRequest(request);
+  std::ostream& req_stream = session->sendRequest(request);
   req_stream.write(body.data(), static_cast<std::streamsize>(body.size()));
 
   Poco::Net::HTTPResponse response{};
-  std::istream& resp_stream = session.receiveResponse(response);
+  std::istream& resp_stream = session->receiveResponse(response);
   std::ostringstream payload{};
   payload << resp_stream.rdbuf();
 
   if (response.getStatus() >= 400) {
-    throw std::runtime_error("llama.cpp generation endpoint returned HTTP " + std::to_string(response.getStatus()));
+    throw std::runtime_error(
+        "generation endpoint returned HTTP " + std::to_string(response.getStatus()) +
+        " (" + response.getReason() + "): " + TruncateForError(payload.str()));
   }
   return payload.str();
 }

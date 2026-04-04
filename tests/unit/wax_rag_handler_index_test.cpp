@@ -10,6 +10,7 @@
 #include <Poco/JSON/Parser.h>
 
 #include <chrono>
+#include <atomic>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -82,6 +83,47 @@ std::string MakeLargeCppBody(int lines) {
   return out.str();
 }
 
+std::string MakeLargeBlueprintJsonBody(int node_count) {
+  std::ostringstream out;
+  out << "{\n"
+      << "  \"blueprint\": \"/Game/Test/BP_Test.BP_Test\",\n"
+      << "  \"asset_path\": \"/Game/Test/BP_Test.BP_Test\",\n"
+      << "  \"asset_name\": \"BP_Test\",\n"
+      << "  \"asset_class\": \"/Script/Engine.Blueprint\",\n"
+      << "  \"asset_kind\": \"blueprint\",\n"
+      << "  \"graphs\": [\n"
+      << "    {\n"
+      << "      \"name\": \"EventGraph\",\n"
+      << "      \"nodes\": [\n";
+  for (int i = 0; i < node_count; ++i) {
+    out << "        {\n"
+        << "          \"class_path\": \"/Script/BlueprintGraph.K2Node_CallFunction\",\n"
+        << "          \"title\": \"Call Func_" << i << "\",\n"
+        << "          \"function\": {\n"
+        << "            \"member_name\": \"Func_" << i << "\",\n"
+        << "            \"member_parent\": \"/Script/Engine.Actor\"\n"
+        << "          },\n"
+        << "          \"pins\": [\n"
+        << "            {\n"
+        << "              \"pin_id\": \"" << i << "_exec\",\n"
+        << "              \"name\": \"execute\",\n"
+        << "              \"direction\": \"in\",\n"
+        << "              \"type_cat\": \"exec\"\n"
+        << "            }\n"
+        << "          ]\n"
+        << "        }";
+    if (i + 1 < node_count) {
+      out << ",";
+    }
+    out << "\n";
+  }
+  out << "      ]\n"
+      << "    }\n"
+      << "  ]\n"
+      << "}\n";
+  return out.str();
+}
+
 waxcpp::RuntimeModelsConfig MakeRuntimeConfigForTests(const std::filesystem::path& runtime_root) {
   waxcpp::RuntimeModelsConfig models{};
   models.generation_model.runtime = "llama_cpp";
@@ -92,6 +134,45 @@ waxcpp::RuntimeModelsConfig MakeRuntimeConfigForTests(const std::filesystem::pat
   models.enable_vector_search = false;
   models.require_distinct_models = true;
   return models;
+}
+
+std::unique_ptr<waxcpp::server::LlamaCppGenerationClient> MakeIndexTestGenerationClient(
+    const waxcpp::RuntimeModelsConfig& models,
+    std::atomic<int>* call_count,
+    int delay_ms = 0,
+    std::atomic<int>* inflight_count = nullptr,
+    std::atomic<int>* max_inflight = nullptr) {
+  return std::make_unique<waxcpp::server::LlamaCppGenerationClient>(
+      waxcpp::server::LlamaCppGenerationConfig{
+          .endpoint = "",
+          .model_path = models.generation_model.model_path,
+          .timeout_ms = 1000,
+          .max_retries = 0,
+          .retry_backoff_ms = 0,
+          .request_fn =
+              [call_count, delay_ms, inflight_count, max_inflight](const std::string&) {
+            if (call_count != nullptr) {
+              ++(*call_count);
+            }
+            if (inflight_count != nullptr) {
+              const int current = ++(*inflight_count);
+              if (max_inflight != nullptr) {
+                int observed = max_inflight->load();
+                while (current > observed &&
+                       !max_inflight->compare_exchange_weak(observed, current)) {
+                }
+              }
+            }
+            if (delay_ms > 0) {
+              std::this_thread::sleep_for(std::chrono::milliseconds(delay_ms));
+            }
+            if (inflight_count != nullptr) {
+              --(*inflight_count);
+            }
+            return std::string(
+                R"({"content":"[{\"entity\":\"BP_Test\",\"attribute\":\"calls\",\"value\":\"StubFunction\"}]"})");
+          },
+      });
 }
 
 using waxcpp::tests::EnvVarGuard;
@@ -159,6 +240,35 @@ IndexStatusView WaitForCommittedChunksAtLeast(waxcpp::server::WaxRAGHandler& han
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
   }
   throw std::runtime_error("index job did not reach committed chunk target before timeout");
+}
+
+std::uint64_t CountNonEmptyLines(const std::filesystem::path& path) {
+  std::ifstream in(path, std::ios::binary);
+  if (!in) {
+    return 0;
+  }
+  std::uint64_t count = 0;
+  std::string line{};
+  while (std::getline(in, line)) {
+    if (!line.empty() && line != "\r") {
+      ++count;
+    }
+  }
+  return count;
+}
+
+std::uint64_t WaitForProcessedChunkCountAtLeast(const std::filesystem::path& path,
+                                                std::uint64_t target,
+                                                int timeout_ms) {
+  const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_ms);
+  while (std::chrono::steady_clock::now() < deadline) {
+    const auto count = CountNonEmptyLines(path);
+    if (count >= target) {
+      return count;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+  }
+  throw std::runtime_error("processed chunk checkpoint did not reach target before timeout");
 }
 
 void ScenarioIndexStartIsAsyncAndStopWorks() {
@@ -489,6 +599,164 @@ void ScenarioResumeWithoutFileManifestSkipsCommittedWatermark() {
   std::filesystem::remove(interrupted_chunk_manifest, ec);
   ec.clear();
   std::filesystem::remove(interrupted_file_manifest, ec);
+  ec.clear();
+}
+
+void ScenarioFactsOnlyBlueprintResumeUsesProcessedChunkCheckpoint() {
+  waxcpp::tests::Log("scenario: facts-only blueprint resume uses processed chunk checkpoint");
+  const auto temp_root = std::filesystem::temp_directory_path() / TempName("waxcpp_handler_index_repo_", "");
+  const auto baseline_store_path =
+      std::filesystem::temp_directory_path() / TempName("waxcpp_handler_index_store_bp_baseline_", ".mv2s");
+  const auto interrupted_store_path =
+      std::filesystem::temp_directory_path() / TempName("waxcpp_handler_index_store_bp_resume_", ".mv2s");
+  const auto interrupted_checkpoint_path = std::filesystem::path(interrupted_store_path.string() + ".index.checkpoint");
+  const auto interrupted_processed_chunks =
+      std::filesystem::path(interrupted_checkpoint_path.string() + ".processed_chunks");
+  const auto interrupted_scan_manifest = std::filesystem::path(interrupted_checkpoint_path.string() + ".scan_manifest");
+  const auto interrupted_chunk_manifest = std::filesystem::path(interrupted_checkpoint_path.string() + ".chunk_manifest");
+  const auto interrupted_file_manifest = std::filesystem::path(interrupted_checkpoint_path.string() + ".file_manifest");
+
+  std::error_code ec;
+  std::filesystem::create_directories(temp_root, ec);
+  if (ec) {
+    throw std::runtime_error("failed to create test repo directory: " + temp_root.string());
+  }
+  for (int i = 0; i < 6; ++i) {
+    WriteTextFile(temp_root / ("BP_" + std::to_string(i) + ".bpl_json"), MakeLargeBlueprintJsonBody(120));
+  }
+
+  EnvVarGuard llama_root_guard("WAXCPP_LLAMA_CPP_ROOT");
+  SetEnvVar("WAXCPP_LLAMA_CPP_ROOT", temp_root.string());
+  const auto models = MakeRuntimeConfigForTests(temp_root);
+
+  auto make_params = [&](bool resume) {
+    Poco::JSON::Object::Ptr params = new Poco::JSON::Object();
+    params->set("repo_root", temp_root.string());
+    params->set("resume", resume);
+    params->set("flush_every_chunks", 1);
+    params->set("ingest_batch_size", 1);
+    params->set("enrich_llm", true);
+    Poco::JSON::Array::Ptr include_extensions = new Poco::JSON::Array();
+    include_extensions->add(".bpl_json");
+    params->set("include_extensions", include_extensions);
+    return params;
+  };
+
+  std::atomic<int> baseline_calls{0};
+  {
+    waxcpp::server::WaxRAGHandler baseline_handler(
+        baseline_store_path,
+        models,
+        MakeIndexTestGenerationClient(models, &baseline_calls));
+    const auto start_raw = baseline_handler.handle_index_start(make_params(false));
+    Require(start_raw.rfind("Error:", 0) != 0, "baseline blueprint index.start must not fail");
+    const auto final_view = WaitForTerminalState(baseline_handler, 30000);
+    Require(final_view.state == "stopped", "baseline blueprint run must complete");
+  }
+  Require(baseline_calls.load() > 10, "baseline blueprint run must process many chunks");
+
+  std::atomic<int> interrupted_calls{0};
+  std::uint64_t committed_before_stop = 0;
+  {
+    waxcpp::server::WaxRAGHandler first_handler(
+        interrupted_store_path,
+        models,
+        MakeIndexTestGenerationClient(models, &interrupted_calls, 15));
+    const auto start_raw = first_handler.handle_index_start(make_params(false));
+    Require(start_raw.rfind("Error:", 0) != 0, "interrupted blueprint index.start must not fail");
+    WaitForRunningState(first_handler, 2000);
+    committed_before_stop = WaitForProcessedChunkCountAtLeast(interrupted_processed_chunks, 3, 12000);
+    const auto stop_raw = first_handler.handle_index_stop(Poco::JSON::Object::Ptr{});
+    Require(stop_raw.rfind("Error:", 0) != 0, "interrupted blueprint index.stop must not fail");
+  }
+  Require(committed_before_stop >= 3, "interrupted blueprint run must persist processed chunk checkpoint");
+  Require(committed_before_stop < static_cast<std::uint64_t>(baseline_calls.load()),
+          "interrupted blueprint run must stop before processing all chunks");
+
+  std::atomic<int> resumed_calls{0};
+  {
+    waxcpp::server::WaxRAGHandler resumed_handler(
+        interrupted_store_path,
+        models,
+        MakeIndexTestGenerationClient(models, &resumed_calls));
+    const auto resume_raw = resumed_handler.handle_index_start(make_params(true));
+    Require(resume_raw.rfind("Error:", 0) != 0, "resume blueprint index.start must not fail");
+    const auto final_view = WaitForTerminalState(resumed_handler, 30000);
+    Require(final_view.state == "stopped", "resumed blueprint run must complete");
+  }
+
+  Require(interrupted_calls.load() + resumed_calls.load() == baseline_calls.load(),
+          "blueprint resume must only process the remaining chunks");
+
+  std::filesystem::remove_all(temp_root, ec);
+  ec.clear();
+  waxcpp::tests::CleanupStoreArtifacts(baseline_store_path);
+  waxcpp::tests::CleanupStoreArtifacts(interrupted_store_path);
+  std::filesystem::remove(interrupted_checkpoint_path, ec);
+  ec.clear();
+  std::filesystem::remove(interrupted_processed_chunks, ec);
+  ec.clear();
+  std::filesystem::remove(interrupted_scan_manifest, ec);
+  ec.clear();
+  std::filesystem::remove(interrupted_chunk_manifest, ec);
+  ec.clear();
+  std::filesystem::remove(interrupted_file_manifest, ec);
+  ec.clear();
+}
+
+void ScenarioBlueprintLlmConcurrencyRunsMoreThanOneRequest() {
+  waxcpp::tests::Log("scenario: blueprint llm enrichment uses configured concurrency");
+  const auto temp_root = std::filesystem::temp_directory_path() / TempName("waxcpp_handler_index_repo_", "");
+  const auto store_path =
+      std::filesystem::temp_directory_path() / TempName("waxcpp_handler_index_store_bp_parallel_", ".mv2s");
+  const auto checkpoint_path = std::filesystem::path(store_path.string() + ".index.checkpoint");
+  const auto processed_chunks = std::filesystem::path(checkpoint_path.string() + ".processed_chunks");
+
+  std::error_code ec;
+  std::filesystem::create_directories(temp_root, ec);
+  if (ec) {
+    throw std::runtime_error("failed to create test repo directory: " + temp_root.string());
+  }
+  WriteTextFile(temp_root / "BP_Parallel.bpl_json", MakeLargeBlueprintJsonBody(200));
+
+  EnvVarGuard llama_root_guard("WAXCPP_LLAMA_CPP_ROOT");
+  EnvVarGuard concurrency_guard("WAXCPP_ENRICH_LLM_CONCURRENCY");
+  SetEnvVar("WAXCPP_LLAMA_CPP_ROOT", temp_root.string());
+  SetEnvVar("WAXCPP_ENRICH_LLM_CONCURRENCY", "4");
+  const auto models = MakeRuntimeConfigForTests(temp_root);
+
+  std::atomic<int> call_count{0};
+  std::atomic<int> inflight_count{0};
+  std::atomic<int> max_inflight{0};
+  waxcpp::server::WaxRAGHandler handler(
+      store_path,
+      models,
+      MakeIndexTestGenerationClient(models, &call_count, 25, &inflight_count, &max_inflight));
+
+  Poco::JSON::Object::Ptr params = new Poco::JSON::Object();
+  params->set("repo_root", temp_root.string());
+  params->set("resume", false);
+  params->set("flush_every_chunks", 1);
+  params->set("ingest_batch_size", 1);
+  params->set("enrich_llm", true);
+  Poco::JSON::Array::Ptr include_extensions = new Poco::JSON::Array();
+  include_extensions->add(".bpl_json");
+  params->set("include_extensions", include_extensions);
+
+  const auto start_raw = handler.handle_index_start(params);
+  Require(start_raw.rfind("Error:", 0) != 0, "parallel blueprint index.start must not fail");
+  const auto final_view = WaitForTerminalState(handler, 30000);
+  Require(final_view.state == "stopped", "parallel blueprint run must complete");
+  Require(call_count.load() > 4, "parallel blueprint run must execute multiple llm calls");
+  Require(max_inflight.load() > 1, "llm concurrency must exceed one in-flight request");
+  Require(std::filesystem::exists(processed_chunks), "processed chunk checkpoint must exist");
+
+  std::filesystem::remove_all(temp_root, ec);
+  ec.clear();
+  waxcpp::tests::CleanupStoreArtifacts(store_path);
+  std::filesystem::remove(checkpoint_path, ec);
+  ec.clear();
+  std::filesystem::remove(processed_chunks, ec);
   ec.clear();
 }
 
@@ -854,6 +1122,8 @@ int main() {
     ScenarioResumeSkipsUnchangedFilesThenIndexesChangedFile();
     ScenarioInterruptedIndexResumesAfterHandlerRecreate();
     ScenarioResumeWithoutFileManifestSkipsCommittedWatermark();
+    ScenarioFactsOnlyBlueprintResumeUsesProcessedChunkCheckpoint();
+    ScenarioBlueprintLlmConcurrencyRunsMoreThanOneRequest();
     ScenarioRepeatedRunsProduceIdenticalChunkManifest();
     ScenarioMaxFilesCapsScanDeterministically();
     ScenarioMaxChunksCapsIngestDeterministically();

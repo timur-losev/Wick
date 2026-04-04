@@ -13,7 +13,7 @@ echo ============================================================
 echo  llama-server (ENRICHMENT mode)
 echo  Model: %MODEL%
 echo  URL:   http://127.0.0.1:8004
-echo  Context: 8192 (enrichment prompts are ~2K tokens)
+echo  Context: 4096 (compressed enrichment prompts are ~200-500 tokens)
 echo  GPU layers: 99 (all layers on GPU)
 echo ============================================================
 echo.
@@ -24,6 +24,7 @@ g:\Proj\Agents1\llama-cpp\llama-server.exe ^
   --port 8004 ^
   --api-key %API_KEY% ^
   --n-gpu-layers 99 ^
-  --ctx-size 65536 ^
+  --ctx-size 4096 ^
+  --parallel 3 ^
   --threads 16 ^
   --alias qwen3-coder-30b-a3b-instruct

@@ -358,22 +358,59 @@ protected:
         auto runtime_config = waxcpp::server::LoadServerRuntimeConfig(runtime_config_path);
         logger.information("Generation runtime: " + runtime_config.models.generation_model.runtime);
         logger.information("Generation model: " + runtime_config.models.generation_model.model_path);
-        logger.information("llama.cpp generation endpoint: " +
-                           waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_ENDPOINT")
-                               .value_or("http://127.0.0.1:8004/completion (default)"));
-        const bool gen_api_key_enabled =
-            waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_API_KEY").has_value() ||
-            waxcpp::server::EnvString("WAXCPP_LLAMA_API_KEY").has_value();
-        logger.information("llama.cpp generation api key: " + std::string(gen_api_key_enabled ? "set" : "not set"));
-        logger.information("llama.cpp generation timeout ms: " +
-                           waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_TIMEOUT_MS")
-                               .value_or("60000 (default)"));
-        logger.information("llama.cpp generation max retries: " +
-                           waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_MAX_RETRIES")
-                               .value_or("2 (default)"));
-        logger.information("llama.cpp generation retry backoff ms: " +
-                           waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_RETRY_BACKOFF_MS")
-                               .value_or("100 (default)"));
+        const auto generation_runtime = waxcpp::ParseModelRuntimeKind(runtime_config.models.generation_model.runtime);
+        if (generation_runtime == waxcpp::ModelRuntimeKind::kOpenAI) {
+            logger.information("OpenAI base URL: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_BASE_URL")
+                                   .value_or("https://api.openai.com (default)"));
+            logger.information("OpenAI api key: " + std::string(
+                waxcpp::server::EnvString("WAXCPP_OPENAI_API_KEY").has_value() ? "set" : "not set"));
+            logger.information("OpenAI reasoning effort: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_REASONING_EFFORT")
+                                   .value_or("low (default)"));
+            logger.information("OpenAI timeout ms: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_TIMEOUT_MS")
+                                   .value_or("60000 (default)"));
+            logger.information("OpenAI max retries: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_MAX_RETRIES")
+                                   .value_or("2 (default)"));
+            logger.information("OpenAI retry backoff ms: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_RETRY_BACKOFF_MS")
+                                   .value_or("100 (default)"));
+        } else if (generation_runtime == waxcpp::ModelRuntimeKind::kOpenAICompatible) {
+            logger.information("OpenAI-compatible base URL: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_COMPAT_BASE_URL")
+                                   .value_or("https://api.openai.com (default)"));
+            logger.information("OpenAI-compatible api key: " + std::string(
+                (waxcpp::server::EnvString("WAXCPP_OPENAI_COMPAT_API_KEY").has_value() ||
+                 waxcpp::server::EnvString("WAXCPP_OPENAI_API_KEY").has_value()) ? "set" : "not set"));
+            logger.information("OpenAI-compatible timeout ms: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_COMPAT_TIMEOUT_MS")
+                                   .value_or("60000 (default)"));
+            logger.information("OpenAI-compatible max retries: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_COMPAT_MAX_RETRIES")
+                                   .value_or("2 (default)"));
+            logger.information("OpenAI-compatible retry backoff ms: " +
+                               waxcpp::server::EnvString("WAXCPP_OPENAI_COMPAT_RETRY_BACKOFF_MS")
+                                   .value_or("100 (default)"));
+        } else {
+            logger.information("llama.cpp generation endpoint: " +
+                               waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_ENDPOINT")
+                                   .value_or("http://127.0.0.1:8004/completion (default)"));
+            const bool gen_api_key_enabled =
+                waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_API_KEY").has_value() ||
+                waxcpp::server::EnvString("WAXCPP_LLAMA_API_KEY").has_value();
+            logger.information("llama.cpp generation api key: " + std::string(gen_api_key_enabled ? "set" : "not set"));
+            logger.information("llama.cpp generation timeout ms: " +
+                               waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_TIMEOUT_MS")
+                                   .value_or("60000 (default)"));
+            logger.information("llama.cpp generation max retries: " +
+                               waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_MAX_RETRIES")
+                                   .value_or("2 (default)"));
+            logger.information("llama.cpp generation retry backoff ms: " +
+                               waxcpp::server::EnvString("WAXCPP_LLAMA_GEN_RETRY_BACKOFF_MS")
+                                   .value_or("100 (default)"));
+        }
         logger.information("Embedding runtime: " + runtime_config.models.embedding_model.runtime);
         logger.information("Embedding model: " +
                            (runtime_config.models.embedding_model.model_path.empty()
@@ -417,8 +454,8 @@ protected:
             logger.information("Runtime config file: " + runtime_config_path->string());
         }
 
-        // Инициализация WAX — store lives in data/ subdirectory to keep bin/ clean
-        const std::filesystem::path store_dir = "data";
+        // Инициализация WAX — store lives in base/ subdirectory to keep bin/ clean
+        const std::filesystem::path store_dir = "base";
         std::filesystem::create_directories(store_dir);
         const auto store_path = store_dir / "wax-server.mv2s";
         logger.information("Store path: " + store_path.string());

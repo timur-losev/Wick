@@ -21,6 +21,8 @@
 #include <fstream>
 #include <optional>
 #include <algorithm>
+#include <deque>
+#include <future>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -45,6 +47,7 @@ constexpr std::uint64_t kIndexFlushEveryChunks = 4096;
 constexpr std::uint64_t kMaxIndexControlValue = 1'000'000;
 constexpr const char* kDefaultLlamaEmbedEndpoint = "http://127.0.0.1:8004/embedding";
 constexpr const char* kDefaultLlamaGenEndpoint = "http://127.0.0.1:8004/completion";
+constexpr const char* kDefaultOpenAIEndpoint = "https://api.openai.com";
 constexpr const char* kServerLogEnv = "WAXCPP_SERVER_LOG";
 constexpr const char* kOrchIngestConcurrencyEnv = "WAXCPP_ORCH_INGEST_CONCURRENCY";
 constexpr const char* kOrchIngestBatchSizeEnv = "WAXCPP_ORCH_INGEST_BATCH_SIZE";
@@ -61,6 +64,41 @@ bool IsSafeCheckpointNamespace(std::string_view value) {
         }
     }
     return true;
+}
+
+std::unordered_set<std::string> ParseProcessedChunkIds(std::string_view manifest) {
+    std::unordered_set<std::string> chunk_ids{};
+    std::size_t cursor = 0;
+    while (cursor < manifest.size()) {
+        const auto line_end = manifest.find('\n', cursor);
+        auto line = manifest.substr(cursor,
+                                    line_end == std::string_view::npos
+                                        ? manifest.size() - cursor
+                                        : line_end - cursor);
+        cursor = line_end == std::string_view::npos ? manifest.size() : line_end + 1;
+        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) {
+            line.remove_suffix(1);
+        }
+        if (!line.empty()) {
+            chunk_ids.emplace(line);
+        }
+    }
+    return chunk_ids;
+}
+
+std::string SerializeProcessedChunkIds(const std::unordered_set<std::string>& chunk_ids) {
+    std::vector<std::string> ordered_ids{};
+    ordered_ids.reserve(chunk_ids.size());
+    for (const auto& chunk_id : chunk_ids) {
+        ordered_ids.push_back(chunk_id);
+    }
+    std::sort(ordered_ids.begin(), ordered_ids.end());
+
+    std::ostringstream out;
+    for (const auto& chunk_id : ordered_ids) {
+        out << chunk_id << '\n';
+    }
+    return out.str();
 }
 
 std::filesystem::path ResolveIndexCheckpointPath(const std::filesystem::path& store_path,
@@ -500,14 +538,38 @@ WaxRAGHandler::WaxRAGHandler(const std::filesystem::path& store_path,
         embedder = std::make_shared<LlamaCppEmbeddingProvider>(std::move(embedder_config));
     }
     LlamaCppGenerationConfig generation_config{};
-    generation_config.endpoint = EnvString("WAXCPP_LLAMA_GEN_ENDPOINT").value_or(kDefaultLlamaGenEndpoint);
-    const auto shared_api_key = EnvString("WAXCPP_LLAMA_API_KEY");
-    generation_config.api_key =
-        EnvString("WAXCPP_LLAMA_GEN_API_KEY").value_or(shared_api_key.value_or(std::string{}));
     generation_config.model_path = runtime_models_.generation_model.model_path;
-    generation_config.timeout_ms = ParsePositiveIntEnv("WAXCPP_LLAMA_GEN_TIMEOUT_MS", 60000);
-    generation_config.max_retries = ParseNonNegativeIntEnv("WAXCPP_LLAMA_GEN_MAX_RETRIES", 2);
-    generation_config.retry_backoff_ms = ParseNonNegativeIntEnv("WAXCPP_LLAMA_GEN_RETRY_BACKOFF_MS", 100);
+    const auto generation_runtime = waxcpp::ParseModelRuntimeKind(runtime_models_.generation_model.runtime);
+    if (generation_runtime == waxcpp::ModelRuntimeKind::kOpenAI) {
+        generation_config.api = GenerationApiKind::kOpenAIResponses;
+        generation_config.endpoint =
+            EnvString("WAXCPP_OPENAI_BASE_URL").value_or(std::string(kDefaultOpenAIEndpoint));
+        generation_config.api_key = EnvString("WAXCPP_OPENAI_API_KEY").value_or(std::string{});
+        generation_config.reasoning_effort =
+            EnvString("WAXCPP_OPENAI_REASONING_EFFORT").value_or(std::string("low"));
+        generation_config.timeout_ms = ParsePositiveIntEnv("WAXCPP_OPENAI_TIMEOUT_MS", 60000);
+        generation_config.max_retries = ParseNonNegativeIntEnv("WAXCPP_OPENAI_MAX_RETRIES", 2);
+        generation_config.retry_backoff_ms = ParseNonNegativeIntEnv("WAXCPP_OPENAI_RETRY_BACKOFF_MS", 100);
+    } else if (generation_runtime == waxcpp::ModelRuntimeKind::kOpenAICompatible) {
+        generation_config.api = GenerationApiKind::kOpenAICompatibleChatCompletions;
+        generation_config.endpoint =
+            EnvString("WAXCPP_OPENAI_COMPAT_BASE_URL").value_or(std::string(kDefaultOpenAIEndpoint));
+        generation_config.api_key = EnvString("WAXCPP_OPENAI_COMPAT_API_KEY")
+                                        .value_or(EnvString("WAXCPP_OPENAI_API_KEY").value_or(std::string{}));
+        generation_config.timeout_ms = ParsePositiveIntEnv("WAXCPP_OPENAI_COMPAT_TIMEOUT_MS", 60000);
+        generation_config.max_retries = ParseNonNegativeIntEnv("WAXCPP_OPENAI_COMPAT_MAX_RETRIES", 2);
+        generation_config.retry_backoff_ms =
+            ParseNonNegativeIntEnv("WAXCPP_OPENAI_COMPAT_RETRY_BACKOFF_MS", 100);
+    } else {
+        generation_config.api = GenerationApiKind::kLlamaCpp;
+        generation_config.endpoint = EnvString("WAXCPP_LLAMA_GEN_ENDPOINT").value_or(kDefaultLlamaGenEndpoint);
+        const auto shared_api_key = EnvString("WAXCPP_LLAMA_API_KEY");
+        generation_config.api_key =
+            EnvString("WAXCPP_LLAMA_GEN_API_KEY").value_or(shared_api_key.value_or(std::string{}));
+        generation_config.timeout_ms = ParsePositiveIntEnv("WAXCPP_LLAMA_GEN_TIMEOUT_MS", 60000);
+        generation_config.max_retries = ParseNonNegativeIntEnv("WAXCPP_LLAMA_GEN_MAX_RETRIES", 2);
+        generation_config.retry_backoff_ms = ParseNonNegativeIntEnv("WAXCPP_LLAMA_GEN_RETRY_BACKOFF_MS", 100);
+    }
     if (generation_client_override) {
         generation_client_ = std::move(generation_client_override);
     } else {
@@ -1039,6 +1101,13 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
         chunk_manifest_path += ".chunk_manifest";
         auto file_manifest_path = running_status.checkpoint_path;
         file_manifest_path += ".file_manifest";
+        auto processed_chunk_ids_path = running_status.checkpoint_path;
+        processed_chunk_ids_path += ".processed_chunks";
+
+        if (!resume_requested) {
+            std::error_code ec;
+            std::filesystem::remove(processed_chunk_ids_path, ec);
+        }
 
         std::vector<Ue5FileDigest> previous_file_digests{};
         bool loaded_previous_file_manifest = false;
@@ -1047,6 +1116,15 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
             if (std::filesystem::exists(file_manifest_path, ec) && !ec) {
                 loaded_previous_file_manifest = true;
                 previous_file_digests = Ue5ChunkManifestBuilder::ParseFileManifest(ReadFileText(file_manifest_path));
+            }
+        }
+
+        std::unordered_set<std::string> committed_processed_chunk_ids{};
+        if (resume_requested) {
+            std::error_code ec;
+            if (std::filesystem::exists(processed_chunk_ids_path, ec) && !ec) {
+                committed_processed_chunk_ids =
+                    ParseProcessedChunkIds(ReadFileText(processed_chunk_ids_path));
             }
         }
 
@@ -1071,12 +1149,20 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
         std::uint64_t chunks_to_process = 0;
         if (resume_requested && loaded_previous_file_manifest && !unchanged_paths.empty()) {
             for (const auto& rec : chunk_records) {
-                if (!unchanged_paths.contains(rec.relative_path)) {
+                if (!unchanged_paths.contains(rec.relative_path) &&
+                    !(rec.language == "bpl_json" &&
+                      committed_processed_chunk_ids.contains(rec.chunk_id))) {
                     ++chunks_to_process;
                 }
             }
         } else {
-            chunks_to_process = static_cast<std::uint64_t>(chunk_records.size());
+            for (const auto& rec : chunk_records) {
+                if (rec.language == "bpl_json" &&
+                    committed_processed_chunk_ids.contains(rec.chunk_id)) {
+                    continue;
+                }
+                ++chunks_to_process;
+            }
         }
         // Count changed files for logging.
         std::uint64_t changed_file_count = current_file_digests.size() - unchanged_paths.size();
@@ -1088,7 +1174,8 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
                 << " changed_files=" << changed_file_count
                 << " previous_digests=" << previous_file_digests.size()
                 << " current_digests=" << current_file_digests.size()
-                << " loaded_manifest=" << (loaded_previous_file_manifest ? "true" : "false");
+                << " loaded_manifest=" << (loaded_previous_file_manifest ? "true" : "false")
+                << " committed_processed_chunks=" << committed_processed_chunk_ids.size();
             ServerLog(msg.str());
             // Log first 5 changed files for diagnostics.
             int changed_logged = 0;
@@ -1130,17 +1217,22 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
         bool reached_chunk_limit = false;
 
         // ── Enrichment pipeline (optional) ──
-        EnricherPipeline enricher_pipeline;
+        EnricherPipeline regex_enricher_pipeline;
         if (options.enrich_regex) {
-            enricher_pipeline.AddEnricher(std::make_unique<RegexUe5Enricher>());
+            regex_enricher_pipeline.AddEnricher(std::make_unique<RegexUe5Enricher>());
             ServerLog("enricher: regex_ue5 enabled");
         }
+        std::unique_ptr<LlmFactEnricher> llm_enricher{};
+        int llm_concurrency = 1;
         if (options.enrich_llm && generation_client_) {
             LlmFactEnricherConfig llm_cfg{};
             llm_cfg.max_tokens = ParsePositiveIntEnv("WAXCPP_ENRICH_LLM_MAX_TOKENS", llm_cfg.max_tokens);
             llm_cfg.total_chunks = chunks_to_process;
-            enricher_pipeline.AddEnricher(std::make_unique<LlmFactEnricher>(generation_client_.get(), llm_cfg));
-            ServerLog(std::string("enricher: llm enabled, max_tokens=") + std::to_string(llm_cfg.max_tokens));
+            llm_enricher = std::make_unique<LlmFactEnricher>(generation_client_.get(), llm_cfg);
+            llm_concurrency = ParsePositiveIntEnv("WAXCPP_ENRICH_LLM_CONCURRENCY", 1);
+            ServerLog(std::string("enricher: llm enabled, max_tokens=") +
+                      std::to_string(llm_cfg.max_tokens) +
+                      " concurrency=" + std::to_string(llm_concurrency));
         }
         std::uint64_t facts_extracted = 0;
 
@@ -1150,43 +1242,71 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
         };
         std::vector<PendingIngestChunk> pending_ingest{};
         std::vector<ExtractedFact> pending_facts{};
+        std::vector<std::string> pending_processed_chunk_ids{};
+        struct PendingLlmJob {
+            std::string chunk_id{};
+            std::future<FactBatch> future{};
+        };
+        std::deque<PendingLlmJob> pending_llm_jobs{};
+        bool has_unflushed_staged_writes = false;
         pending_ingest.reserve(static_cast<std::size_t>(std::min<std::uint64_t>(options.ingest_batch_size, 1024ULL)));
-        auto flush_pending_ingest = [&]() {
-            if (pending_ingest.empty() && pending_facts.empty()) {
+        pending_processed_chunk_ids.reserve(
+            static_cast<std::size_t>(std::min<std::uint64_t>(options.ingest_batch_size, 1024ULL)));
+        auto persist_processed_chunk_ids = [&]() {
+            WriteFileText(processed_chunk_ids_path, SerializeProcessedChunkIds(committed_processed_chunk_ids));
+        };
+        auto flush_pending_ingest = [&](bool force_commit = false) {
+            if (pending_ingest.empty() && pending_facts.empty() && pending_processed_chunk_ids.empty() &&
+                !(force_commit && has_unflushed_staged_writes)) {
                 return;
             }
             bool should_report_progress = false;
             std::uint64_t progress_indexed = 0;
             std::uint64_t progress_committed = 0;
+            bool should_flush_storage = false;
+            const bool should_commit_processed_chunks =
+                force_commit || pending_processed_chunk_ids.size() >= options.flush_every_chunks;
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 for (const auto& pending : pending_ingest) {
                     orchestrator_->Remember(pending.text, pending.metadata);
                     ++indexed_chunks;
+                    has_unflushed_staged_writes = true;
                     if (options.max_chunks > 0 && indexed_chunks >= options.max_chunks) {
                         reached_chunk_limit = true;
                     }
                     if (indexed_chunks % options.flush_every_chunks == 0) {
-                        orchestrator_->Flush();
-                        committed_chunks = indexed_chunks;
-                        should_report_progress = true;
-                        progress_indexed = indexed_chunks;
-                        progress_committed = committed_chunks;
+                        should_flush_storage = true;
                     }
                 }
                 // Emit enriched facts
                 for (const auto& fact : pending_facts) {
                     orchestrator_->RememberFact(fact.entity, fact.attribute, fact.value, fact.metadata);
                     ++facts_extracted;
+                    has_unflushed_staged_writes = true;
                 }
-                // For facts-only indexing (e.g. bpl_json with skip_text_index),
-                // indexed_chunks stays 0 and the chunk-based flush never fires.
-                // Use facts_extracted as a secondary flush trigger.
-                if (indexed_chunks == 0 && facts_extracted > 0 &&
-                    facts_extracted % options.flush_every_chunks == 0) {
+                if (!should_flush_storage && has_unflushed_staged_writes &&
+                    should_commit_processed_chunks) {
+                    should_flush_storage = true;
+                }
+                if (force_commit && has_unflushed_staged_writes) {
+                    should_flush_storage = true;
+                }
+                if (should_flush_storage) {
                     orchestrator_->Flush();
+                    has_unflushed_staged_writes = false;
+                    committed_chunks = indexed_chunks;
                     should_report_progress = true;
+                    progress_indexed = indexed_chunks;
+                    progress_committed = committed_chunks;
                 }
+            }
+            if (should_commit_processed_chunks && !pending_processed_chunk_ids.empty()) {
+                for (const auto& chunk_id : pending_processed_chunk_ids) {
+                    committed_processed_chunk_ids.insert(chunk_id);
+                }
+                persist_processed_chunk_ids();
+                pending_processed_chunk_ids.clear();
             }
             // Always update progress so index.status reflects reality.
             (void)index_job_manager_.UpdateProgress(static_cast<std::uint64_t>(entries.size()),
@@ -1199,10 +1319,44 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
                 if (facts_extracted > 0) {
                     msg << " facts_extracted=" << facts_extracted;
                 }
+                if (!committed_processed_chunk_ids.empty()) {
+                    msg << " committed_processed_chunks=" << committed_processed_chunk_ids.size();
+                }
                 ServerLog(msg.str());
             }
             pending_ingest.clear();
             pending_facts.clear();
+        };
+        auto finalize_llm_job = [&](PendingLlmJob job) {
+            auto facts = job.future.get();
+            for (auto& fact : facts) {
+                pending_facts.push_back(std::move(fact));
+            }
+            pending_processed_chunk_ids.push_back(std::move(job.chunk_id));
+            if (pending_ingest.size() >= options.ingest_batch_size ||
+                pending_processed_chunk_ids.size() >= options.ingest_batch_size) {
+                flush_pending_ingest();
+            }
+        };
+        auto drain_ready_llm_jobs = [&]() {
+            while (!pending_llm_jobs.empty()) {
+                auto& next_job = pending_llm_jobs.front();
+                if (next_job.future.wait_for(std::chrono::milliseconds(0)) != std::future_status::ready) {
+                    break;
+                }
+                auto job = std::move(next_job);
+                pending_llm_jobs.pop_front();
+                finalize_llm_job(std::move(job));
+            }
+        };
+        auto wait_for_llm_jobs_until = [&](std::size_t max_inflight) {
+            while (pending_llm_jobs.size() > max_inflight) {
+                auto& next_job = pending_llm_jobs.front();
+                next_job.future.wait();
+                auto job = std::move(next_job);
+                pending_llm_jobs.pop_front();
+                finalize_llm_job(std::move(job));
+            }
         };
         {
             const bool using_skip = resume_requested && !unchanged_paths.empty();
@@ -1221,6 +1375,7 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
                 if (is_cancelled()) {
                     return;
                 }
+                drain_ready_llm_jobs();
                 enforce_memory_cap();
                 if (remaining_resume_skip_chunks > 0) {
                     --remaining_resume_skip_chunks;
@@ -1237,6 +1392,9 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
 
                 // bpl_json: facts-only indexing — skip raw text, only enrich.
                 const bool skip_text_index = (chunk.language == "bpl_json");
+                if (skip_text_index && committed_processed_chunk_ids.contains(chunk.chunk_id)) {
+                    return;
+                }
 
                 if (!skip_text_index) {
                     waxcpp::Metadata metadata{};
@@ -1256,25 +1414,56 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
                     });
                 }
 
-                // ── Enrichment ──
-                if (!enricher_pipeline.Empty()) {
-                    auto facts = enricher_pipeline.EnrichAll(chunk, chunk_text);
+                // ── Regex enrichment ──
+                if (!regex_enricher_pipeline.Empty()) {
+                    auto facts = regex_enricher_pipeline.EnrichAll(chunk, chunk_text);
                     for (auto& f : facts) {
                         pending_facts.push_back(std::move(f));
                     }
+                }
+                // ── LLM enrichment ──
+                if (llm_enricher) {
+                    if (llm_concurrency <= 1) {
+                        auto facts = llm_enricher->Enrich(chunk, chunk_text);
+                        for (auto& f : facts) {
+                            pending_facts.push_back(std::move(f));
+                        }
+                        pending_processed_chunk_ids.push_back(chunk.chunk_id);
+                    } else {
+                        wait_for_llm_jobs_until(static_cast<std::size_t>(llm_concurrency - 1));
+                        Ue5ChunkRecord llm_chunk = chunk;
+                        std::string llm_chunk_text(chunk_text);
+                        pending_llm_jobs.push_back(PendingLlmJob{
+                            .chunk_id = chunk.chunk_id,
+                            .future = std::async(
+                                std::launch::async,
+                                [llm = llm_enricher.get(),
+                                 record = std::move(llm_chunk),
+                                 text = std::move(llm_chunk_text)]() mutable {
+                                    return llm->Enrich(record, text);
+                                }),
+                        });
+                    }
+                } else {
+                    pending_processed_chunk_ids.push_back(chunk.chunk_id);
                 }
 
                 if (options.max_chunks > 0 &&
                     indexed_chunks + static_cast<std::uint64_t>(pending_ingest.size()) >= options.max_chunks) {
                     reached_chunk_limit = true;
                 }
-                if (pending_ingest.size() >= options.ingest_batch_size) {
+                if (pending_ingest.size() >= options.ingest_batch_size ||
+                    pending_processed_chunk_ids.size() >= options.ingest_batch_size) {
                     flush_pending_ingest();
                 }
             },
             nullptr,
             (resume_requested && !unchanged_paths.empty()) ? &unchanged_paths : nullptr);
-        flush_pending_ingest();
+        wait_for_llm_jobs_until(0);
+        flush_pending_ingest(true);
+        (void)index_job_manager_.UpdateProgress(static_cast<std::uint64_t>(entries.size()),
+                                                indexed_chunks,
+                                                committed_chunks);
         if (reached_chunk_limit) {
             ServerLog("index job reached max_chunks cap");
         }
@@ -1282,19 +1471,6 @@ void WaxRAGHandler::run_index_job(std::string repo_root,
             ServerLog("index job cancelled during ingest");
             return;
         }
-
-        // Final flush: covers both uncommitted text chunks and facts-only
-        // indexing where indexed_chunks stays 0 but facts were emitted.
-        {
-            std::lock_guard<std::mutex> lock(mutex_);
-            if (indexed_chunks > committed_chunks || facts_extracted > 0) {
-                orchestrator_->Flush();
-                committed_chunks = indexed_chunks;
-            }
-        }
-        (void)index_job_manager_.UpdateProgress(static_cast<std::uint64_t>(entries.size()),
-                                                indexed_chunks,
-                                                committed_chunks);
         if (is_cancelled()) {
             ServerLog("index job cancelled before manifest write");
             return;

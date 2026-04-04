@@ -9,6 +9,8 @@ enum class ModelRuntimeKind {
   kUnknown = 0,
   kDisabled,
   kLlamaCpp,
+  kOpenAI,
+  kOpenAICompatible,
   kLibTorch,
 };
 

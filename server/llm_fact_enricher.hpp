@@ -6,6 +6,7 @@
 #include "chunk_enricher.hpp"
 #include "llama_cpp_generation_client.hpp"
 
+#include <atomic>
 #include <cstdint>
 
 namespace waxcpp::server {
@@ -39,10 +40,11 @@ class LlmFactEnricher : public ChunkEnricher {
         const Ue5ChunkRecord& record);
     [[nodiscard]] static std::string EntityPrefix(const std::string& language);
     [[nodiscard]] static std::string ExtractJsonArray(const std::string& text);
+    [[nodiscard]] static bool IsBlueprintChunkUseful(std::string_view text);
 
     LlamaCppGenerationClient* client_;
     LlmFactEnricherConfig config_;
-    std::uint64_t chunk_counter_{0};
+    std::atomic<std::uint64_t> chunk_counter_{0};
 };
 
 }  // namespace waxcpp::server

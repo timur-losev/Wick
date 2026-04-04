@@ -28,6 +28,8 @@ struct Ue5ChunkRecord {
 struct Ue5ChunkingConfig {
   waxcpp::ChunkingStrategy strategy{};
   bool include_symbol_metadata = true;
+  /// Enable Blueprint JSON compression + structural chunking for .bpl_json files.
+  bool enable_bpl_compression = true;
 };
 
 struct Ue5FileDigest {

@@ -25,6 +25,14 @@ waxcpp::server::Ue5ChunkRecord MakeRecord() {
     };
 }
 
+waxcpp::server::Ue5ChunkRecord MakeBlueprintRecord() {
+    auto record = MakeRecord();
+    record.relative_path = "Content/Test/BP_Test.bpl_json";
+    record.language = "bpl_json";
+    record.symbol.clear();
+    return record;
+}
+
 bool HasFact(const waxcpp::server::FactBatch& facts,
              const std::string& entity,
              const std::string& attribute,
@@ -135,6 +143,82 @@ void ScenarioNetworkError() {
     std::cerr << "    PASS" << std::endl;
 }
 
+// ── Scenario 6: Noise-only blueprint chunk is skipped before LLM ────────────
+
+void ScenarioBlueprintNoiseChunkSkipped() {
+    std::cerr << "  ScenarioBlueprintNoiseChunkSkipped..." << std::endl;
+
+    int call_count = 0;
+    waxcpp::server::LlamaCppGenerationConfig gen_config;
+    gen_config.request_fn = [&call_count](const std::string&) -> std::string {
+        ++call_count;
+        return R"({"choices":[{"message":{"content":"[{\"entity\":\"BP_Test\",\"attribute\":\"calls\",\"value\":\"ShouldNotHappen\"}]"}}]})";
+    };
+    waxcpp::server::LlamaCppGenerationClient client(gen_config);
+
+    const std::string noise_chunk = R"({
+  "pins": [
+    {
+      "pin_id": "A1",
+      "name": "execute",
+      "direction": "in",
+      "type_cat": "exec",
+      "type_sub": "None",
+      "default_value": "",
+      "default_object": "",
+      "default_text": "",
+      "container_type": "None"
+    }
+  ],
+  "links": [
+    {
+      "from_node_guid": "N1",
+      "from_pin_name": "then",
+      "to_node_guid": "N2",
+      "to_pin_name": "execute"
+    }
+  ]
+})";
+
+    waxcpp::server::LlmFactEnricher enricher(&client);
+    const auto facts = enricher.Enrich(MakeBlueprintRecord(), noise_chunk);
+
+    Require(facts.empty(), "noise-only blueprint chunk must produce no facts");
+    Require(call_count == 0, "noise-only blueprint chunk must not call LLM");
+    std::cerr << "    PASS" << std::endl;
+}
+
+// ── Scenario 7: Semantic blueprint chunk still reaches LLM ──────────────────
+
+void ScenarioBlueprintSemanticChunkNotSkipped() {
+    std::cerr << "  ScenarioBlueprintSemanticChunkNotSkipped..." << std::endl;
+
+    int call_count = 0;
+    waxcpp::server::LlamaCppGenerationConfig gen_config;
+    gen_config.request_fn = [&call_count](const std::string&) -> std::string {
+        ++call_count;
+        return R"({"choices":[{"message":{"content":"[{\"entity\":\"BP_Test\",\"attribute\":\"calls\",\"value\":\"K2_SetActorLocation\"}]"}}]})";
+    };
+    waxcpp::server::LlamaCppGenerationClient client(gen_config);
+
+    const std::string semantic_chunk = R"({
+  "class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+  "title": "Set Actor Location",
+  "function": {
+    "member_name": "K2_SetActorLocation",
+    "member_parent": "/Script/Engine.Actor"
+  }
+})";
+
+    waxcpp::server::LlmFactEnricher enricher(&client);
+    const auto facts = enricher.Enrich(MakeBlueprintRecord(), semantic_chunk);
+
+    Require(call_count == 1, "semantic blueprint chunk must call LLM");
+    Require(HasFact(facts, "bp:BP_Test", "calls", "K2_SetActorLocation"),
+            "semantic blueprint fact missing");
+    std::cerr << "    PASS" << std::endl;
+}
+
 }  // namespace
 
 int main() {
@@ -158,6 +242,8 @@ int main() {
     run("ScenarioEmptyArray", ScenarioEmptyArray);
     run("ScenarioMalformedJson", ScenarioMalformedJson);
     run("ScenarioNetworkError", ScenarioNetworkError);
+    run("ScenarioBlueprintNoiseChunkSkipped", ScenarioBlueprintNoiseChunkSkipped);
+    run("ScenarioBlueprintSemanticChunkNotSkipped", ScenarioBlueprintSemanticChunkNotSkipped);
 
     std::cerr << "\n" << passed << " passed, " << failed << " failed" << std::endl;
     return failed > 0 ? 1 : 0;

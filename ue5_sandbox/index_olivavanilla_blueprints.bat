@@ -1,13 +1,17 @@
 @echo off
 REM ============================================================
-REM  Export OlivaVanilla Blueprints + Index in WAX with LLM enrichment
+REM  Export OlivaVanilla Blueprints/DataAssets + Index in WAX with LLM enrichment
 REM
-REM  Step 1: UnrealEditor-Cmd exports all BP_* graphs to .bpl_json
+REM  Step 1: UnrealEditor-Cmd exports Blueprints and DataAssets to .bpl_json
 REM  Step 2: WAX indexes .bpl_json (facts only, no raw JSON in text index)
 REM
-REM  target_tokens = 3000  (larger chunks for Blueprint JSON)
+REM  target_tokens = 2000  (budget per structural chunk after compression)
 REM  enrich_regex  = false (C++ enricher, not useful for Blueprint JSON)
 REM  enrich_llm    = true  (LLM extracts Blueprint semantics as facts)
+REM
+REM  NOTE: .bpl_json files are now auto-compressed before chunking.
+REM  Noise fields (pins, GUIDs, links) are stripped, keeping only
+REM  semantic data (calls, events, variables, properties). ~8-15x smaller.
 REM
 REM  Requires:
 REM    - WAX server running on 127.0.0.1:8080
@@ -21,21 +25,21 @@ set EXPORT_DIR=J:\UE4\Projects\OlivaVanilla\Saved\BlueprintExports
 set CHECKPOINT_NAMESPACE=olivavanilla_blueprints
 
 echo ============================================================
-echo  OlivaVanilla Blueprint RAG Pipeline
-echo  1) Export BP_* graphs to .bpl_json
+echo  OlivaVanilla Asset RAG Pipeline
+echo  1) Export Blueprints/DataAssets to .bpl_json
 echo  2) Index .bpl_json in WAX with LLM enrichment (facts only)
 echo ============================================================
 echo.
 
-REM ---- Step 1: Export Blueprints to .bpl_json ----
-echo [Step 1/2] Exporting Blueprints to .bpl_json ...
+REM ---- Step 1: Export Blueprints/DataAssets to .bpl_json ----
+echo [Step 1/2] Exporting Blueprints and DataAssets to .bpl_json ...
 echo   Editor:  %UE_EDITOR%
 echo   Project: %UPROJECT%
 echo   Output:  %EXPORT_DIR%
 echo.
 
 REM  -Root=/ scans ALL mount points (game + plugins), not just /Game
-REM  bRecursiveClasses=true in plugin catches UBlueprint + all subclasses
+REM  bRecursiveClasses=true in plugin catches UBlueprint/UDataAsset + subclasses
 REM "%UE_EDITOR%" "%UPROJECT%" -run=BlueprintGraphExport -Root=/ -ExportDir="%EXPORT_DIR%" -unattended -nop4
 
 REM UE may return non-zero due to Blueprint compilation errors — that's OK.
@@ -61,7 +65,7 @@ echo.
 
 curl -s -X POST http://127.0.0.1:8080/ ^
   -H "Content-Type: application/json" ^
-  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"index.start\",\"params\":{\"repo_root\":\"%EXPORT_DIR:\=/%\",\"resume\":false,\"checkpoint_namespace\":\"%CHECKPOINT_NAMESPACE%\",\"flush_every_chunks\":1000,\"ingest_batch_size\":1,\"target_tokens\":3000,\"max_chunks\":0,\"include_extensions\":[\".bpl_json\"],\"exclude_dirs\":[],\"enrich_regex\":false,\"enrich_llm\":true}}"
+  -d "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"index.start\",\"params\":{\"repo_root\":\"%EXPORT_DIR:\=/%\",\"resume\":false,\"checkpoint_namespace\":\"%CHECKPOINT_NAMESPACE%\",\"flush_every_chunks\":1000,\"ingest_batch_size\":1,\"target_tokens\":2000,\"max_chunks\":0,\"include_extensions\":[\".bpl_json\"],\"exclude_dirs\":[],\"enrich_regex\":false,\"enrich_llm\":true}}"
 
 echo.
 echo.

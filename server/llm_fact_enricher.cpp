@@ -16,6 +16,17 @@ namespace waxcpp::server {
 
 namespace {
 
+std::size_t CountOccurrences(std::string_view text, std::string_view needle) {
+    if (needle.empty()) return 0;
+    std::size_t count = 0;
+    std::size_t pos = 0;
+    while ((pos = text.find(needle, pos)) != std::string_view::npos) {
+        ++count;
+        pos += needle.size();
+    }
+    return count;
+}
+
 bool EnrichLlmLogEnabled() {
     static const bool enabled = []() {
         const auto raw = EnvString("WAXCPP_ENRICH_LLM_LOG");
@@ -24,18 +35,6 @@ bool EnrichLlmLogEnabled() {
         return v == "1" || v == "true" || v == "TRUE" || v == "on" || v == "ON";
     }();
     return enabled;
-}
-
-/// For Blueprint JSON: skip chunks that contain only pins/links/GUIDs with no node declarations.
-/// A useful chunk has at least one "class_path" or "member_name" or "blueprint" key.
-bool IsBlueprintChunkUseful(std::string_view text) {
-    return text.find("\"class_path\"") != std::string_view::npos
-        || text.find("\"member_name\"") != std::string_view::npos
-        || text.find("\"blueprint\"") != std::string_view::npos
-        || text.find("\"custom_function_name\"") != std::string_view::npos
-        || text.find("\"var_name\"") != std::string_view::npos
-        || text.find("\"cast_target\"") != std::string_view::npos
-        || text.find("\"macro_ref\"") != std::string_view::npos;
 }
 
 /// Check if a string looks like a hex GUID (32 hex chars, possibly with hyphens).
@@ -56,26 +55,103 @@ LlmFactEnricher::LlmFactEnricher(
     LlmFactEnricherConfig config)
     : client_(client), config_(config) {}
 
+bool LlmFactEnricher::IsBlueprintChunkUseful(std::string_view text) {
+    const auto function_refs = CountOccurrences(text, "\"function\":");
+    const auto variable_refs = CountOccurrences(text, "\"variable_ref\":");
+    const auto custom_events = CountOccurrences(text, "\"custom_function_name\":");
+    const auto macro_refs = CountOccurrences(text, "\"macro_ref\":");
+    const auto cast_targets = CountOccurrences(text, "\"cast_target\":");
+    const auto properties = CountOccurrences(text, "\"properties\":");
+    const auto var_names = CountOccurrences(text, "\"var_name\":");
+
+    const auto call_nodes = CountOccurrences(text, "K2Node_CallFunction");
+    const auto variable_get_nodes = CountOccurrences(text, "K2Node_VariableGet");
+    const auto variable_set_nodes = CountOccurrences(text, "K2Node_VariableSet");
+    const auto event_nodes = CountOccurrences(text, "K2Node_Event");
+    const auto macro_nodes = CountOccurrences(text, "K2Node_MacroInstance");
+    const auto cast_nodes = CountOccurrences(text, "K2Node_DynamicCast");
+    const auto useful_node_classes =
+        call_nodes + variable_get_nodes + variable_set_nodes + event_nodes + macro_nodes + cast_nodes;
+
+    const auto asset_headers =
+        CountOccurrences(text, "\"blueprint\":") +
+        CountOccurrences(text, "\"asset_path\":") +
+        CountOccurrences(text, "\"asset_name\":") +
+        CountOccurrences(text, "\"asset_class\":") +
+        CountOccurrences(text, "\"asset_kind\":");
+
+    const auto titles = CountOccurrences(text, "\"title\":");
+    const auto semantic_anchors =
+        function_refs + variable_refs + custom_events + macro_refs + cast_targets + properties + var_names;
+
+    const auto pin_metadata =
+        CountOccurrences(text, "\"pin_id\":") +
+        CountOccurrences(text, "\"direction\":") +
+        CountOccurrences(text, "\"type_cat\":") +
+        CountOccurrences(text, "\"type_sub\":") +
+        CountOccurrences(text, "\"container_type\":");
+    const auto link_fields =
+        CountOccurrences(text, "\"from_node_guid\":") +
+        CountOccurrences(text, "\"to_node_guid\":") +
+        CountOccurrences(text, "\"from_pin_name\":") +
+        CountOccurrences(text, "\"to_pin_name\":");
+    const auto default_fields =
+        CountOccurrences(text, "\"default_value\":") +
+        CountOccurrences(text, "\"default_object\":") +
+        CountOccurrences(text, "\"default_text\":");
+    const auto guid_fields =
+        CountOccurrences(text, "\"graph_guid\":") +
+        CountOccurrences(text, "\"node_guid\":") +
+        CountOccurrences(text, "\"member_guid\":");
+    const auto noise_fields = pin_metadata + link_fields + default_fields + guid_fields;
+
+    if (semantic_anchors > 0) {
+        return true;
+    }
+    if (useful_node_classes > 0 && titles > 0) {
+        return true;
+    }
+    if (asset_headers >= 4 && noise_fields == 0) {
+        return true;
+    }
+    if (link_fields > 0 && semantic_anchors == 0 && useful_node_classes == 0) {
+        return false;
+    }
+    if (pin_metadata >= 12 && semantic_anchors == 0 && useful_node_classes == 0) {
+        return false;
+    }
+    if (noise_fields > 0 && asset_headers > 0 && semantic_anchors == 0 &&
+        useful_node_classes == 0 && titles == 0) {
+        return false;
+    }
+    if (noise_fields > (asset_headers + titles + 1) * 6 && properties == 0) {
+        return false;
+    }
+    return false;
+}
+
 // ── Prompts ──────────────────────────────────────────────────
 
 std::string LlmFactEnricher::BuildSystemPrompt(const std::string& language) {
     if (language == "json" || language == "blueprint_json" || language == "bpl_json") {
         return
-            "You are a UE Blueprint analysis assistant. Extract structured facts from Blueprint graph JSON.\n"
+            "You are a UE asset analysis assistant. Extract structured facts from exported Blueprint and DataAsset JSON.\n"
             "Return a JSON array of objects: {\"entity\", \"attribute\", \"value\"}.\n"
             "\n"
             "RULES:\n"
-            "- entity = human-readable name (Blueprint name, function name, variable name, event name)\n"
+            "- entity = human-readable asset, blueprint, function, variable, event, input action, or mapping context name\n"
             "- NEVER use GUIDs (hex strings like \"AA1AC0D5...\") as entity or value\n"
             "- NEVER use pin names (\"then\", \"execute\", \"self\", \"ReturnValue\", \"A\", \"B\") as values for \"calls\"\n"
             "- For \"calls\" attribute, use the \"member_name\" field from CallFunction nodes\n"
             "- For \"has_variable\" attribute, use the \"member_name\" from VariableGet/Set nodes\n"
             "- For \"has_event\" attribute, use \"custom_function_name\" or \"title\" from Event nodes\n"
-            "- If chunk contains only pins, links, or GUIDs without node class_path/title — return []\n"
+            "- For DataAssets, use property names and values to extract facts such as has_mapping, binds_input, references, depends_on, type, purpose\n"
+            "- For input mapping contexts, prefer action names, keys, modifiers, and triggers over boilerplate metadata\n"
+            "- If chunk contains only pins, links, or GUIDs without useful asset declarations — return []\n"
             "\n"
-            "GOOD attributes: calls, has_variable, has_event, type, cast_target, macro_ref, depends_on, purpose\n"
+            "GOOD attributes: calls, has_variable, has_event, has_mapping, binds_input, references, type, cast_target, macro_ref, depends_on, purpose\n"
             "- For \"depends_on\", use cast_target class, macro blueprint, or parent class references\n"
-            "- For \"purpose\", describe what the Blueprint or function DOES based on its name, events, and called functions (e.g. \"handles player movement\", \"enemy AI behavior\")\n"
+            "- For \"purpose\", describe what the asset or function DOES based on its name, events, properties, and called functions (e.g. \"handles player movement\", \"enemy AI behavior\", \"maps movement input\")\n"
             "\n"
             "Example input node:\n"
             "{\"class_path\": \"K2Node_CallFunction\", \"title\": \"Set Actor Location\", "
@@ -208,26 +284,22 @@ FactBatch LlmFactEnricher::Enrich(
 
     // Pre-filter: skip Blueprint JSON chunks that contain only pins/links/GUIDs.
     const bool is_json = (record.language == "json" || record.language == "blueprint_json" || record.language == "bpl_json");
+    const auto chunk_index = chunk_counter_.fetch_add(1, std::memory_order_relaxed) + 1;
+    const auto progress_tag = [&]() -> std::string {
+        if (config_.total_chunks > 0) {
+            return "[" + std::to_string(chunk_index) + "/" + std::to_string(config_.total_chunks) + "] ";
+        }
+        return "[" + std::to_string(chunk_index) + "] ";
+    }();
     if (is_json && !IsBlueprintChunkUseful(chunk_text)) {
-        ++chunk_counter_;
         if (EnrichLlmLogEnabled()) {
-            const auto tag = config_.total_chunks > 0
-                ? "[" + std::to_string(chunk_counter_) + "/" + std::to_string(config_.total_chunks) + "] "
-                : "[" + std::to_string(chunk_counter_) + "] ";
-            std::cerr << "[ENRICH-LLM] " << tag << "SKIP (no node declarations) "
+            std::cerr << "[ENRICH-LLM] " << progress_tag << "SKIP (noise-only blueprint chunk) "
                       << record.relative_path << ":" << record.line_start << "-" << record.line_end << "\n";
         }
         return {};
     }
 
-    ++chunk_counter_;
     const bool verbose = EnrichLlmLogEnabled();
-    const auto progress_tag = [&]() -> std::string {
-        if (config_.total_chunks > 0) {
-            return "[" + std::to_string(chunk_counter_) + "/" + std::to_string(config_.total_chunks) + "] ";
-        }
-        return "[" + std::to_string(chunk_counter_) + "] ";
-    }();
 
     try {
         const auto user_prompt = BuildUserPrompt(record, chunk_text);

@@ -33,7 +33,9 @@ void OverlayModelSpec(const Poco::JSON::Object::Ptr& object, waxcpp::ModelRuntim
     return;
   }
   out.runtime = object->optValue<std::string>("runtime", out.runtime);
-  out.model_path = object->optValue<std::string>("model_path", out.model_path);
+  out.model_path = object->optValue<std::string>(
+      "model",
+      object->optValue<std::string>("model_path", out.model_path));
 }
 
 void OverlayLlamaCppRoot(const Poco::JSON::Object::Ptr& object, waxcpp::RuntimeModelsConfig& models) {
@@ -88,7 +90,8 @@ void OverlayFromJson(const Poco::JSON::Object::Ptr& root, waxcpp::RuntimeModelsC
 
 ServerRuntimeConfig DefaultServerRuntimeConfig() {
   ServerRuntimeConfig config{};
-  config.models.generation_model.runtime = "llama_cpp";
+  config.models.generation_model.runtime =
+      EnvString("WAXCPP_GENERATION_RUNTIME").value_or(std::string("llama_cpp"));
   config.models.generation_model.model_path =
       EnvString("WAXCPP_GENERATION_MODEL").value_or(std::string{});
   config.models.embedding_model.runtime = "disabled";

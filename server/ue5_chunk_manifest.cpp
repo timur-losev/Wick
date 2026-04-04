@@ -1,4 +1,5 @@
 #include "ue5_chunk_manifest.hpp"
+#include "bpl_json_compressor.hpp"
 #include "server_utils.hpp"
 
 #include "waxcpp/token_counter.hpp"
@@ -8,6 +9,7 @@
 #include <cctype>
 #include <fstream>
 #include <iomanip>
+#include <iostream>
 #include <optional>
 #include <sstream>
 #include <stdexcept>
@@ -288,6 +290,63 @@ std::vector<Ue5ChunkRecord> Ue5ChunkManifestBuilder::Build(
           .content_hash = file_hash,
       });
     }
+
+    const auto language = DetectLanguage(entry.relative_path);
+
+    // ── Blueprint JSON: compress + structural chunking ──────────
+    if (language == "bpl_json" && config_.enable_bpl_compression) {
+      const auto compressed = CompressBplJson(content);
+      if (compressed.empty()) {
+        std::cerr << "[BPL-COMPRESS] SKIP (compression returned empty) "
+                  << entry.relative_path << " (" << content.size() << " bytes)\n";
+        if (content.size() > 0) {
+          // Log first 200 chars to diagnose parse failures
+          std::cerr << "[BPL-COMPRESS]   first 200 chars: "
+                    << std::string_view(content).substr(0, 200) << "\n";
+        }
+        continue;
+      }
+
+      const auto structural_chunks = ChunkBplJsonByNodes(
+          compressed, config_.strategy.target_tokens);
+      if (structural_chunks.empty()) {
+        std::cerr << "[BPL-COMPRESS] SKIP (no structural chunks) "
+                  << entry.relative_path
+                  << " compressed=" << compressed.size() << " bytes\n";
+        continue;
+      }
+
+      for (std::size_t ci = 0; ci < structural_chunks.size(); ++ci) {
+        const auto& sc = structural_chunks[ci];
+        if (sc.text.empty()) continue;
+
+        const auto chunk_hash = Hex64(Fnv1a64(sc.text));
+        std::ostringstream id_material;
+        id_material << entry.relative_path << '\n'
+                    << sc.graph_name << '\n'
+                    << ci << '\n'
+                    << chunk_hash;
+
+        Ue5ChunkRecord record{
+            .chunk_id = Hex64(Fnv1a64(id_material.str())),
+            .relative_path = entry.relative_path,
+            .language = language,
+            .symbol = sc.graph_name,
+            .line_start = static_cast<std::uint32_t>(ci + 1),
+            .line_end = static_cast<std::uint32_t>(ci + 1),
+            .token_estimate = static_cast<std::uint32_t>(std::max(1, sc.token_estimate)),
+            .content_hash = chunk_hash,
+            .size_bytes = static_cast<std::uint64_t>(sc.text.size()),
+        };
+        if (on_chunk) {
+          on_chunk(record, sc.text);
+        }
+        records.push_back(std::move(record));
+      }
+      continue;
+    }
+
+    // ── Standard line-based chunking for C++/other ──────────────
     const auto lines = SplitLines(content);
     if (lines.empty()) {
       continue;
@@ -300,7 +359,6 @@ std::vector<Ue5ChunkRecord> Ue5ChunkManifestBuilder::Build(
     }
 
     const auto windows = BuildChunkWindows(line_tokens, config_.strategy);
-    const auto language = DetectLanguage(entry.relative_path);
     for (const auto& window : windows) {
       const auto chunk_text = JoinLines(lines, window.start_line, window.end_line);
       if (TrimAscii(chunk_text).empty()) {

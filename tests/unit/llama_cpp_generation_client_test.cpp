@@ -36,6 +36,16 @@ void ScenarioParseSupportedSchemas() {
         R"({"choices":[{"message":{"content":"beta"}}]})");
     Require(text == "beta", "choices message schema parse mismatch");
   }
+  {
+    const auto text = waxcpp::server::LlamaCppGenerationClient::ParseGenerationResponse(
+        R"({"output":[{"type":"message","content":[{"type":"output_text","text":"gamma"}]}]})");
+    Require(text == "gamma", "responses api schema parse mismatch");
+  }
+  {
+    const auto text = waxcpp::server::LlamaCppGenerationClient::ParseGenerationResponse(
+        R"({"text":{"format":{"type":"text"},"verbosity":"medium"},"output":[{"type":"message","content":[{"type":"output_text","text":"delta"}]}]})");
+    Require(text == "delta", "responses api output must win over metadata text object");
+  }
 }
 
 void ScenarioParseRejectsMalformed() {
@@ -179,6 +189,85 @@ void ScenarioGenerateValidation() {
   Require(threw, "empty prompt must throw");
 }
 
+void ScenarioOpenAIResponsesFormat() {
+  waxcpp::tests::Log("scenario: OpenAI Responses request format");
+  std::string captured_body{};
+  waxcpp::server::LlamaCppGenerationClient client(
+      waxcpp::server::LlamaCppGenerationConfig{
+          .api = waxcpp::server::GenerationApiKind::kOpenAIResponses,
+          .endpoint = "https://api.openai.com",
+          .api_key = "test-key",
+          .model_path = "gpt-5-mini",
+          .reasoning_effort = "low",
+          .timeout_ms = 1000,
+          .max_retries = 0,
+          .retry_backoff_ms = 0,
+          .request_fn =
+              [&](const std::string& body) -> std::string {
+            captured_body = body;
+            return R"({"output":[{"type":"message","content":[{"type":"output_text","text":"openai-ok"}]}]})";
+          },
+      });
+
+  const auto result = client.Generate(
+      waxcpp::server::LlamaCppGenerationRequest{
+          .prompt = "analyze blueprint",
+          .system_prompt = "Return strict JSON.",
+          .max_tokens = 256,
+          .temperature = 0.1f,
+          .top_p = 0.95f,
+      });
+
+  Require(result == "openai-ok", "OpenAI responses result mismatch");
+  Require(captured_body.find("\"model\":\"gpt-5-mini\"") != std::string::npos,
+          "OpenAI responses request must include model");
+  Require(captured_body.find("\"instructions\":\"Return strict JSON.\"") != std::string::npos,
+          "OpenAI responses request must include instructions");
+  Require(captured_body.find("\"input\":\"analyze blueprint\"") != std::string::npos,
+          "OpenAI responses request must include input");
+  Require(captured_body.find("\"max_output_tokens\":256") != std::string::npos,
+          "OpenAI responses request must include max_output_tokens");
+  Require(captured_body.find("\"verbosity\":\"low\"") != std::string::npos,
+          "OpenAI responses request must lower text verbosity");
+}
+
+void ScenarioOpenAICompatibleChatFormat() {
+  waxcpp::tests::Log("scenario: OpenAI-compatible chat completions request format");
+  std::string captured_body{};
+  waxcpp::server::LlamaCppGenerationClient client(
+      waxcpp::server::LlamaCppGenerationConfig{
+          .api = waxcpp::server::GenerationApiKind::kOpenAICompatibleChatCompletions,
+          .endpoint = "https://example.com/v1",
+          .api_key = "test-key",
+          .model_path = "gpt-5-mini",
+          .timeout_ms = 1000,
+          .max_retries = 0,
+          .retry_backoff_ms = 0,
+          .request_fn =
+              [&](const std::string& body) -> std::string {
+            captured_body = body;
+            return R"({"choices":[{"message":{"content":"compat-ok"}}]})";
+          },
+      });
+
+  const auto result = client.Generate(
+      waxcpp::server::LlamaCppGenerationRequest{
+          .prompt = "hello",
+          .system_prompt = "be concise",
+          .max_tokens = 99,
+          .temperature = 0.2f,
+          .top_p = 0.8f,
+      });
+
+  Require(result == "compat-ok", "OpenAI-compatible result mismatch");
+  Require(captured_body.find("\"model\":\"gpt-5-mini\"") != std::string::npos,
+          "OpenAI-compatible request must include model");
+  Require(captured_body.find("\"messages\"") != std::string::npos,
+          "OpenAI-compatible request must include messages");
+  Require(captured_body.find("\"max_completion_tokens\":99") != std::string::npos,
+          "OpenAI-compatible request must include max_completion_tokens");
+}
+
 }  // namespace
 
 int main() {
@@ -190,6 +279,8 @@ int main() {
     ScenarioStripThinkingBlocks();
     ScenarioLegacyCompletionFormat();
     ScenarioGenerateValidation();
+    ScenarioOpenAIResponsesFormat();
+    ScenarioOpenAICompatibleChatFormat();
     waxcpp::tests::Log("llama_cpp_generation_client_test: finished");
     return EXIT_SUCCESS;
   } catch (const std::exception& ex) {
