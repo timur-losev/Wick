@@ -40,6 +40,8 @@ public:
 
     // Blueprint round-trip methods
     std::string handle_blueprint_read(const Poco::JSON::Object::Ptr& params);
+    std::string handle_blueprint_compressed_read(const Poco::JSON::Object::Ptr& params);
+    std::string handle_blueprint_patch(const Poco::JSON::Object::Ptr& params);
     std::string handle_blueprint_write(const Poco::JSON::Object::Ptr& params);
     std::string handle_blueprint_import(const Poco::JSON::Object::Ptr& params);
 

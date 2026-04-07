@@ -569,6 +569,24 @@ if (WAXCPP_BUILD_TESTS)
       target_compile_options(waxcpp_bpl_json_compressor_test PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME waxcpp_bpl_json_compressor_test COMMAND waxcpp_bpl_json_compressor_test)
+
+    add_executable(waxcpp_bpl_json_patch_compiler_test
+      tests/unit/bpl_json_patch_compiler_test.cpp
+      server/bpl_json_patch_compiler.cpp
+    )
+    target_link_libraries(waxcpp_bpl_json_patch_compiler_test PRIVATE
+      waxcpp
+      Poco::JSON
+      Poco::Foundation
+      Poco::Util
+    )
+    target_include_directories(waxcpp_bpl_json_patch_compiler_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/server)
+    if (MSVC)
+      target_compile_options(waxcpp_bpl_json_patch_compiler_test PRIVATE /W4 /permissive-)
+    else()
+      target_compile_options(waxcpp_bpl_json_patch_compiler_test PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME waxcpp_bpl_json_patch_compiler_test COMMAND waxcpp_bpl_json_patch_compiler_test)
   endif()
 
   add_executable(waxcpp_structured_memory_store_test tests/unit/structured_memory_store_test.cpp)

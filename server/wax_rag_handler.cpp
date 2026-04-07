@@ -1,5 +1,7 @@
 // cpp/server/wax_rag_handler.cpp
 #include "wax_rag_handler.hpp"
+#include "bpl_json_compressor.hpp"
+#include "bpl_json_patch_compiler.hpp"
 #include "chunk_enricher.hpp"
 #include "fact_service.hpp"
 #include "regex_ue5_enricher.hpp"
@@ -1818,6 +1820,114 @@ std::string WaxRAGHandler::handle_blueprint_read(const Poco::JSON::Object::Ptr& 
         response.set("json", content);
         response.set("file_path", file_path.string());
         response.set("size_bytes", static_cast<std::int64_t>(content.size()));
+
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
+    }
+}
+
+// ── blueprint.compressed_read ───────────────────────────────
+
+std::string WaxRAGHandler::handle_blueprint_compressed_read(const Poco::JSON::Object::Ptr& params) {
+    const std::string blueprint_path =
+        (params.isNull() ? "" : params->optValue<std::string>("blueprint_path", ""));
+    if (blueprint_path.empty()) {
+        return "{\"error\":\"Missing required parameter 'blueprint_path'\"}";
+    }
+    const std::string export_dir =
+        (params.isNull() ? "" : params->optValue<std::string>("export_dir", ""));
+    if (export_dir.empty()) {
+        return "{\"error\":\"Missing required parameter 'export_dir'\"}";
+    }
+
+    try {
+        const auto filename = BlueprintPathToFilename(blueprint_path);
+        const auto file_path = std::filesystem::path(export_dir) / filename;
+
+        if (!std::filesystem::exists(file_path)) {
+            return "{\"error\":\"File not found: " + JsonEscape(file_path.string()) + "\"}";
+        }
+
+        const auto content = ReadFileText(file_path);
+        const auto compressed = CompressBplJson(content);
+
+        if (compressed.empty()) {
+            return "{\"error\":\"Failed to compress Blueprint JSON (invalid JSON or empty)\"}";
+        }
+
+        Poco::JSON::Object response;
+        response.set("json", compressed);
+        response.set("file_path", file_path.string());
+        response.set("original_size", static_cast<std::int64_t>(content.size()));
+        response.set("compressed_size", static_cast<std::int64_t>(compressed.size()));
+
+        std::ostringstream out;
+        response.stringify(out);
+        return out.str();
+
+    } catch (const std::exception& e) {
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
+    }
+}
+
+// ── blueprint.patch ─────────────────────────────────────────
+
+std::string WaxRAGHandler::handle_blueprint_patch(const Poco::JSON::Object::Ptr& params) {
+    const std::string blueprint_path =
+        (params.isNull() ? "" : params->optValue<std::string>("blueprint_path", ""));
+    if (blueprint_path.empty()) {
+        return "{\"error\":\"Missing required parameter 'blueprint_path'\"}";
+    }
+    const std::string export_dir =
+        (params.isNull() ? "" : params->optValue<std::string>("export_dir", ""));
+    if (export_dir.empty()) {
+        return "{\"error\":\"Missing required parameter 'export_dir'\"}";
+    }
+    const std::string intent_json =
+        (params.isNull() ? "" : params->optValue<std::string>("intent_json", ""));
+    if (intent_json.empty()) {
+        return "{\"error\":\"Missing required parameter 'intent_json'\"}";
+    }
+
+    try {
+        const auto filename = BlueprintPathToFilename(blueprint_path);
+        const auto file_path = std::filesystem::path(export_dir) / filename;
+
+        // Read existing blueprint (may not exist for create mode)
+        std::string existing_content;
+        if (std::filesystem::exists(file_path)) {
+            existing_content = ReadFileText(file_path);
+        }
+
+        // Compile patch
+        auto patch_result = CompileBlueprintPatch(existing_content, intent_json);
+        if (!patch_result.error.empty()) {
+            return "{\"error\":\"" + JsonEscape(patch_result.error) + "\"}";
+        }
+
+        // Create backup if file exists
+        if (std::filesystem::exists(file_path)) {
+            const auto backup_path = std::filesystem::path(file_path.string() + ".backup.bpl_json");
+            std::filesystem::copy_file(file_path, backup_path, std::filesystem::copy_options::overwrite_existing);
+        }
+
+        // Write merged result
+        {
+            std::ofstream ofs(file_path, std::ios::binary | std::ios::trunc);
+            if (!ofs) {
+                return "{\"error\":\"Failed to open file for writing: " + JsonEscape(file_path.string()) + "\"}";
+            }
+            ofs << patch_result.json;
+        }
+
+        Poco::JSON::Object response;
+        response.set("summary", patch_result.summary);
+        response.set("file_path", file_path.string());
+        response.set("bytes_written", static_cast<std::int64_t>(patch_result.json.size()));
 
         std::ostringstream out;
         response.stringify(out);

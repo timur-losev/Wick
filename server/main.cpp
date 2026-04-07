@@ -229,6 +229,10 @@ public:
                 result = handler_.handle_index_stop(json_request.params);
             } else if (json_request.method == "blueprint.read") {
                 result = handler_.handle_blueprint_read(json_request.params);
+            } else if (json_request.method == "blueprint.compressed_read") {
+                result = handler_.handle_blueprint_compressed_read(json_request.params);
+            } else if (json_request.method == "blueprint.patch") {
+                result = handler_.handle_blueprint_patch(json_request.params);
             } else if (json_request.method == "blueprint.write") {
                 result = handler_.handle_blueprint_write(json_request.params);
             } else if (json_request.method == "blueprint.import") {

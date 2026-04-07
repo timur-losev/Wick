@@ -20,6 +20,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+// Patch compiler is now in C++ (blueprint.patch endpoint)
 
 const WAX_URL = process.env.WAX_URL || "http://127.0.0.1:8080";
 
@@ -211,6 +212,85 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["blueprint_path", "export_dir", "json"],
       },
     },
+    {
+      name: "wax_blueprint_patch",
+      description:
+        "Apply a Blueprint Intent patch (.bpi_json) to an existing blueprint. " +
+        "Reads current blueprint, merges intent (add/remove nodes and links), writes result. " +
+        "Intent format uses ref names instead of GUIDs, existing:Title for existing nodes. " +
+        "For creating new blueprints, set create:true in the intent.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          blueprint_path: {
+            type: "string",
+            description: "UE asset path (e.g. /Game/Blueprints/BP_MyActor.BP_MyActor)",
+          },
+          export_dir: {
+            type: "string",
+            description: "Path to BlueprintExports directory on disk",
+          },
+          intent_json: {
+            type: "string",
+            description: "Blueprint Intent JSON (.bpi_json) string with add_nodes, add_links, etc.",
+          },
+        },
+        required: ["blueprint_path", "export_dir", "intent_json"],
+      },
+    },
+    {
+      name: "wax_blueprint_import",
+      description:
+        "Import modified .bpl_json files into UE5 via the BlueprintGraphImport commandlet. " +
+        "Compiles blueprints and saves packages. Returns stdout/stderr for error handling.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          ue_editor: {
+            type: "string",
+            description: "Path to UnrealEditor-Cmd.exe",
+          },
+          uproject: {
+            type: "string",
+            description: "Path to .uproject file",
+          },
+          import_dir: {
+            type: "string",
+            description: "Path to directory with .bpl_json files",
+          },
+          compile: {
+            type: "boolean",
+            description: "Compile after import (default true)",
+          },
+          save: {
+            type: "boolean",
+            description: "Save packages after import (default true)",
+          },
+        },
+        required: ["ue_editor", "uproject", "import_dir"],
+      },
+    },
+    {
+      name: "wax_blueprint_compressed_read",
+      description:
+        "Read a compressed view of a Blueprint — strips pins, GUIDs, links, positions. " +
+        "Returns only semantic data (node titles, function calls, events, variables). " +
+        "Use this for LLM context instead of full blueprint_read.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          blueprint_path: {
+            type: "string",
+            description: "UE asset path (e.g. /Game/Blueprints/BP_MyActor.BP_MyActor)",
+          },
+          export_dir: {
+            type: "string",
+            description: "Path to BlueprintExports directory on disk",
+          },
+        },
+        required: ["blueprint_path", "export_dir"],
+      },
+    },
   ],
 }));
 
@@ -330,6 +410,88 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return {
           content: [{ type: "text", text: `Written ${result.bytes_written} bytes to ${result.file_path}` }],
+        };
+      }
+
+      case "wax_blueprint_patch": {
+        const result = await callWax("blueprint.patch", {
+          blueprint_path: args.blueprint_path,
+          export_dir: args.export_dir,
+          intent_json: args.intent_json,
+        });
+
+        if (result == null || typeof result !== "object") {
+          return {
+            content: [{ type: "text", text: `Patch response: ${String(result ?? "empty")}` }],
+            isError: true,
+          };
+        }
+
+        if (result.error) {
+          return {
+            content: [{ type: "text", text: `Patch error: ${result.error}` }],
+            isError: true,
+          };
+        }
+
+        return {
+          content: [{ type: "text", text: `${result.summary}\nWritten ${result.bytes_written} bytes to ${result.file_path}` }],
+        };
+      }
+
+      case "wax_blueprint_import": {
+        const result = await callWax("blueprint.import", {
+          ue_editor: args.ue_editor,
+          uproject: args.uproject,
+          import_dir: args.import_dir,
+          compile: args.compile !== false,
+          save: args.save !== false,
+        });
+
+        if (result == null || typeof result !== "object") {
+          return {
+            content: [{ type: "text", text: `Import response: ${String(result ?? "empty")}` }],
+            isError: true,
+          };
+        }
+
+        const success = !result.error && (result.exit_code === 0 || result.exit_code === undefined);
+        const text = success
+          ? `Import successful.\n${result.stdout || ""}`
+          : `Import failed (exit ${result.exit_code}).\nstdout: ${result.stdout || ""}\nstderr: ${result.stderr || ""}\nerror: ${result.error || ""}`;
+
+        return {
+          content: [{ type: "text", text }],
+          isError: !success,
+        };
+      }
+
+      case "wax_blueprint_compressed_read": {
+        const result = await callWax("blueprint.compressed_read", {
+          blueprint_path: args.blueprint_path,
+          export_dir: args.export_dir,
+        });
+
+        if (result == null || typeof result !== "object") {
+          return {
+            content: [{ type: "text", text: `Compressed read error: ${String(result ?? "empty")}` }],
+            isError: true,
+          };
+        }
+
+        if (result.error) {
+          return {
+            content: [{ type: "text", text: `Error: ${result.error}` }],
+            isError: true,
+          };
+        }
+
+        const ratio = result.original_size > 0
+          ? (result.original_size / result.compressed_size).toFixed(1)
+          : "?";
+
+        return {
+          content: [{ type: "text", text: `Compressed ${ratio}x (${result.original_size} → ${result.compressed_size} bytes)\n\n${result.json}` }],
         };
       }
 
