@@ -267,6 +267,32 @@ Combine class + keyword for usage patterns:
 
 Returns `items[]` with `text` (code fragment), `score`, `kind` (0=snippet, 1=declaration).
 
+**Noise rule — common words → read top-3 only.** The more generic English
+words a query has (`collision`, `blocking`, `disabled`, `handler`, `manager`,
+`actor`, `component`, `system`, `data`, `state`, `update`, `set`, `get`,
+`init`), the more noise appears below top-5. BM25 matches those words across
+unrelated code (editor commands, physics internals, movie scene helpers).
+
+Action:
+1. Read **top-3 to top-5** carefully. Ignore the rest.
+2. Skip an item if ≥30 % of its content is about editor / physics / movie
+   scene and that's not your topic.
+3. If top-3 didn't have what you need, **rerun with the generic words
+   stripped** — keep only specific identifiers (class names, method names,
+   `U…/A…/F…` prefixes).
+
+Example:
+
+```
+Noisy (42 % junk in lower positions):
+  "ALyraPlayerStart FindTeleportSpot GetDefault<APawn> collision disabled actor encroaching blocking geometry"
+
+Clean (only specific identifiers):
+  "ALyraPlayerStart GetLocationOccupancy GetDefault<APawn> EncroachingBlockingGeometry"
+```
+
+Top-1 is the same, but the noise at the bottom disappears.
+
 **`wax_fact_search`** — structured (entity, attribute, value) triples by prefix:
 - `entity_prefix: "cpp:AMyActor"` → class facts (inherits, kind, specifiers)
 - `entity_prefix: "cpp:UCharacterMovement"` → partial prefix match
