@@ -27,12 +27,47 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 // Patch compiler is now in C++ (blueprint.patch endpoint)
 
 const WAX_URL       = process.env.WAX_URL       || "http://127.0.0.1:8080";
 const EMBED_URL     = process.env.WAX_EMBED_URL || "http://127.0.0.1:8088";
 const ES_URL        = process.env.WAX_ES_URL    || "http://127.0.0.1:9200";
 const ES_BP_INDEX   = process.env.WAX_ES_BP_INDEX || "wax_bp_v1";
+
+// ── Session log ──────────────────────────────────────────────
+// Every MCP tool call is appended to this file (one JSON line per call)
+// so that feedback sessions can be reviewed after the fact.
+//
+// Default: <repo>/logs/mcp_tool_calls.log  (repo is two levels up from this file).
+// Override via WAX_MCP_LOG env var, or set to "off" to disable.
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const DEFAULT_LOG = path.resolve(__dirname, "..", "logs", "mcp_tool_calls.log");
+const MCP_LOG_PATH = process.env.WAX_MCP_LOG === "off"
+  ? null
+  : (process.env.WAX_MCP_LOG || DEFAULT_LOG);
+
+function truncate(s, max = 300) {
+  if (typeof s !== "string") s = JSON.stringify(s);
+  if (s == null) return "";
+  return s.length > max ? s.slice(0, max) + `… (+${s.length - max} chars)` : s;
+}
+
+function logToolCall(entry) {
+  if (!MCP_LOG_PATH) return;
+  try {
+    fs.mkdirSync(path.dirname(MCP_LOG_PATH), { recursive: true });
+    const line = JSON.stringify(entry) + "\n";
+    fs.appendFileSync(MCP_LOG_PATH, line, "utf8");
+  } catch (err) {
+    // Never let logging take the request down — stderr only.
+    process.stderr.write(`[mcp-log] write failed: ${err.message}\n`);
+  }
+}
 
 // ── JSON-RPC helper ──────────────────────────────────────────
 
@@ -467,7 +502,27 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args } = request.params;
 
+  const __t0 = Date.now();
+  const __logBase = {
+    ts: new Date().toISOString(),
+    tool: name,
+    args: truncate(JSON.stringify(args || {}), 500),
+  };
+
+  const __wrapResult = (result) => {
+    const text = result?.content?.[0]?.text ?? "";
+    logToolCall({
+      ...__logBase,
+      elapsed_ms: Date.now() - __t0,
+      is_error: !!result?.isError,
+      result_preview: truncate(text, 500),
+    });
+    return result;
+  };
+
   try {
+    // Re-enter the original switch via a local helper so we can log the result.
+    const result = await (async () => {
     switch (name) {
       case "wax_recall": {
         const result = await callWax("recall", { query: args.query });
@@ -934,11 +989,21 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           isError: true,
         };
     }
+    })();  // end IIFE inside the try
+    return __wrapResult(result);
   } catch (err) {
-    return {
+    const errResult = {
       content: [{ type: "text", text: `Error: ${err.message}` }],
       isError: true,
     };
+    logToolCall({
+      ...__logBase,
+      elapsed_ms: Date.now() - __t0,
+      is_error: true,
+      error: err.message,
+      stack: truncate(err.stack || "", 500),
+    });
+    return errResult;
   }
 });
 

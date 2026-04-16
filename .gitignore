@@ -33,3 +33,7 @@ __pycache__/
 .env
 .env.local
 
+# Session logs — regeneratable per-session telemetry
+/logs/*.log
+/logs/*.jsonl
+

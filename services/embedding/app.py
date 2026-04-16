@@ -196,6 +196,36 @@ def similarity(req: SimilarityRequest) -> dict:
 
 # ── Blueprint refresh ───────────────────────────────────────────────────────
 
+# File-based log for bp_refresh activity. Default lands in <repo>/logs/bp_refresh.log.
+# Override via WAX_BP_REFRESH_LOG env var, or set to "off" to disable.
+_BP_REFRESH_LOG_DEFAULT = Path(__file__).resolve().parents[2] / "logs" / "bp_refresh.log"
+_BP_REFRESH_LOG = os.environ.get("WAX_BP_REFRESH_LOG")
+if _BP_REFRESH_LOG is None:
+    _BP_REFRESH_LOG_PATH: Optional[Path] = _BP_REFRESH_LOG_DEFAULT
+elif _BP_REFRESH_LOG.lower() == "off":
+    _BP_REFRESH_LOG_PATH = None
+else:
+    _BP_REFRESH_LOG_PATH = Path(_BP_REFRESH_LOG)
+
+
+def _log_refresh(kind: str, payload: dict) -> None:
+    """Append one JSON line to the bp_refresh log. Never raises."""
+    if _BP_REFRESH_LOG_PATH is None:
+        return
+    try:
+        _BP_REFRESH_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+        import json as _json
+        from datetime import datetime, timezone
+        line = _json.dumps(
+            {"ts": datetime.now(timezone.utc).isoformat(), "kind": kind, **payload},
+            ensure_ascii=False,
+        )
+        with open(_BP_REFRESH_LOG_PATH, "a", encoding="utf-8") as fp:
+            fp.write(line + "\n")
+    except Exception as e:  # pragma: no cover — never block the request
+        logger.warning("bp_refresh log write failed: %s", e)
+
+
 # Lazy-initialized ES client: we don't want the service to fail at startup if
 # Elasticsearch is down (embedding-only use cases still work).
 _es_client = None
@@ -272,6 +302,14 @@ def bp_refresh(req: BpRefreshRequest) -> dict[str, Any]:
         es_get=_es_get_source,
         es_upsert=_es_upsert_doc,
     )
+    _log_refresh("single", {
+        "entity": req.entity,
+        "export_dir": req.export_dir,
+        "status": result.get("status"),
+        "structural_hash": result.get("structural_hash"),
+        "prev_hash": result.get("prev_hash"),
+        "elapsed_ms": result.get("elapsed_ms"),
+    })
     if result["status"] == "not_found":
         raise HTTPException(status_code=404, detail=result)
     if result["status"] == "parse_failed":
@@ -294,4 +332,16 @@ def bp_reindex_all(req: BpReindexRequest) -> dict[str, Any]:
         es_get=_es_get_source,
         es_upsert=_es_upsert_doc,
     )
+    _log_refresh("bulk", {
+        "export_dir": req.export_dir,
+        "requested_entities": len(req.entities) if req.entities else 0,
+        "scanned_all": req.entities is None,
+        "total": result.get("total"),
+        "updated": result.get("updated"),
+        "indexed": result.get("indexed"),
+        "unchanged": result.get("unchanged"),
+        "not_found": result.get("not_found"),
+        "parse_failed": result.get("parse_failed"),
+        "elapsed_ms": result.get("elapsed_ms"),
+    })
     return result

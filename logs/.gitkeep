@@ -1,0 +1,2 @@
+# placeholder so the logs/ directory is tracked in git while actual *.log
+# files are gitignored. Log files populate during agent sessions.
