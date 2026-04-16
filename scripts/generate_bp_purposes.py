@@ -28,27 +28,74 @@ LLAMA_URL = os.environ.get("WAX_LLAMA_URL", "http://127.0.0.1:8090")
 DEFAULT_MAX_TOKENS = 140
 DEFAULT_TEMPERATURE = 0.0
 
-SYSTEM_PROMPT = """You describe Unreal Engine Blueprints in one concise sentence.
+SYSTEM_PROMPT = """You describe Unreal Engine Blueprints in ONE sentence based on structural facts.
 
-You are given:
-- The Blueprint's asset name (use naming conventions: GA_ = GameplayAbility, GE_ = GameplayEffect,
-  GC_ = GameplayCue, BP_/B_ = Actor, W_/WBP_ = Widget, ABP_ = AnimBlueprint, IMC_ = InputMapping,
-  AN_ = AnimNotify, EQS_ = EQS query, etc.)
-- Its kind and parent class
-- Events it overrides, variables, called functions, exec chains
+OUTPUT RULES (strict):
+1. Start with an action verb in present tense: "Spawns", "Applies", "Tracks", "Plays",
+   "Restores", "Displays", "Opens", "Drives", "Enables", "Handles", "Maps", etc.
+2. NEVER start with "This blueprint", "<Name> is", "A blueprint", "An actor blueprint".
+3. Do NOT restate the kind or parent class — the caller already has that info.
+   The sentence should describe BEHAVIOR, not classification.
+4. Use the asset-name prefix to infer intent:
+     GA_   → GameplayAbility      (describe what the ability does when activated)
+     GE_   → GameplayEffect       (describe what stat/state it changes on targets)
+     GC_ / GCNL_ → GameplayCue    (describe the visual/audio effect)
+     W_ / WBP_   → Widget         (describe the UI element's visual role)
+     ABP_ / ALI_ → AnimBlueprint  (describe which animation state it drives)
+     AN_   → AnimNotify           (describe what fires at the notify point)
+     BP_ / B_ → Actor             (describe the actor's gameplay function)
+     IMC_  → InputMappingContext  (describe which actions it maps)
+     IA_   → InputAction          (describe the player intent it represents)
+     EQS_  → EQS query            (describe what it searches for)
+     FX_ / NS_   → Niagara system
+     PP_   → Post-process / prop
+5. Focus on GAMEPLAY/UI effect, not implementation. Prefer "heals the caster for N" over
+   "calls ApplyGameplayEffect with Heal spec".
+6. Under 30 words. One sentence, no trailing period needed.
 
-ALWAYS produce a sentence, even with minimal facts — infer purpose from the name and kind.
-Focus on WHAT the Blueprint does gameplay-wise. Do NOT describe its implementation details.
-Output ONLY one sentence, no quotes, no prefix like "This blueprint".
-Keep it under 35 words."""
+EXAMPLES (imitate this style):
+Name: GA_Heal          → Restores health to the ability user while triggering a heal cue
+Name: GA_SpawnEffect   → Applies a spawn-in effect and disables player input for a short delay, then restores input when the ability ends
+Name: GE_DamageOverTime → Deals periodic damage to affected targets for a configured duration
+Name: W_ScoreBoard     → Displays current match score and per-team stats with live updates
+Name: W_RespawnTimer   → Shows a countdown while the player waits to respawn, then hides itself
+Name: BP_Door          → Opens and closes an animated door when a character overlaps the trigger
+Name: ABP_Weap_Pistol  → Drives pistol-specific animation updates each frame from the pawn owner
+Name: AN_Melee         → Fires melee gameplay events on the owning actor at the notify point
+Name: IMC_Default      → Maps core movement, jump, look, and fire actions to keyboard and gamepad
+Name: GCNL_Dash        → Plays the dash visual effect and boosts the pawn briefly in its facing direction"""
+
+
+def _folder_hint(asset_path: str) -> str:
+    """Derive a short 'in .../Foo/Bar' hint from the asset path.
+
+    Asset paths look like '/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect'.
+    The last two directory segments usually carry the strongest semantic hint
+    (e.g. "Game/Respawn" tells us this is about respawn mechanics).
+    """
+    if not asset_path or "/" not in asset_path:
+        return ""
+    # Strip the final ".AssetName" suffix and trailing filename
+    trimmed = asset_path.rsplit(".", 1)[0]
+    parts = [p for p in trimmed.split("/") if p]
+    # parts = ['ShooterCore', 'Game', 'Respawn', 'GA_SpawnEffect']
+    if len(parts) < 2:
+        return ""
+    # Take last 2-3 path segments, drop the leaf (asset name)
+    hint_parts = parts[-3:-1] if len(parts) >= 4 else parts[:-1]
+    return "/".join(hint_parts)
 
 
 def build_user_prompt(facts: dict) -> str:
     """Turn structural facts into a compact LLM prompt."""
-    lines = [f"Blueprint: {facts['asset_name']}"]
-    lines.append(f"kind: {facts['kind']}")
+    lines = [f"Name: {facts['asset_name']}"]
+
+    folder = _folder_hint(facts.get("asset_path", ""))
+    if folder:
+        lines.append(f"folder: {folder}")
+
     if facts.get("parent_class_hint"):
-        lines.append(f"inherits_event_from: {facts['parent_class_hint']}")
+        lines.append(f"parent_context: {facts['parent_class_hint']}")
     if facts.get("events"):
         lines.append(f"events: {', '.join(facts['events'])}")
     if facts.get("custom_events"):
@@ -73,7 +120,7 @@ def build_user_prompt(facts: dict) -> str:
         lines.append(f"on {evt}: {chain}")
 
     lines.append("")
-    lines.append("Describe what this blueprint does in one sentence:")
+    lines.append("Describe what this blueprint does in ONE sentence starting with a verb:")
     return "\n".join(lines)
 
 
@@ -107,19 +154,73 @@ def call_llama(prompt: str, system_prompt: str = SYSTEM_PROMPT,
     return (msg.get("content") or "").strip()
 
 
+import re
+
+# Patterns we consider generic openers that waste output budget and hurt search.
+# Matched case-insensitively, must anchor at the start of the sentence.
+#
+# Trailing "(?:a\s+|an\s+|the\s+)?" absorbs the leading article of the next
+# clause so we don't end up with sentences like "A respawn timer ...".
+_GENERIC_OPENER_RES = [
+    # "This blueprint manages a door that opens..."  → "Opens..."
+    # "This blueprint provides an inventory UI which displays..." → "Displays..."
+    re.compile(
+        r"^this\s+blueprint\s+"
+        r"(?:[a-z]+\s+)+"                   # verb phrase: "manages a ", "provides an "
+        r"(?:that|which|for)\s+"
+        r"(?:a\s+|an\s+|the\s+)?",
+        re.IGNORECASE,
+    ),
+    # "GA_Foo is a gameplay ability that activates..." → "Activates..."
+    # "BP_Foo is an actor blueprint that spawns..."    → "Spawns..."
+    # Also handles bare "An actor blueprint that ..."
+    re.compile(
+        r"^(?:this blueprint\s+)?"
+        r"(?:[A-Za-z0-9_]+\s+)?"            # optional asset name
+        r"(?:is\s+)?(?:an?\s+)?"
+        r"(?:actor\s+blueprint|gameplay\s+(?:ability|effect|cue)|widget|blueprint|anim(?:ation)?\s+(?:blueprint|notify))"
+        r"\s+(?:that|which|for|representing|handling|used\s+to)\s+"
+        r"(?:a\s+|an\s+|the\s+)?",
+        re.IGNORECASE,
+    ),
+    # "A blueprint for a door that ..." / "A blueprint for controlling ..." → "..."
+    re.compile(
+        r"^a\s+blueprint\s+(?:for|that|which)\s+"
+        r"(?:a\s+|an\s+|the\s+)?",
+        re.IGNORECASE,
+    ),
+]
+
+
+def _strip_generic_opener(s: str) -> str:
+    """Remove the boilerplate intro clauses produced by some model outputs."""
+    for pattern in _GENERIC_OPENER_RES:
+        m = pattern.match(s)
+        if m:
+            rest = s[m.end():].lstrip()
+            if rest:
+                # Capitalise first letter so the sentence still reads well.
+                return rest[0].upper() + rest[1:]
+    return s
+
+
 def sanitize_purpose(raw: str) -> str:
-    """Clean up LLM output: strip quotes, trailing punct, etc."""
+    """Clean up LLM output: strip quotes, generic openers, trailing punct, etc."""
     s = raw.strip()
-    # Strip surrounding quotes
-    for q in ("\"", "'", "`"):
+    # Strip markdown code fences FIRST — ``` starts both with a quote-like char
+    # and must be handled before the single-quote-char loop below.
+    if s.startswith("```") and s.endswith("```") and len(s) >= 6:
+        s = s[3:-3].strip()
+    # Strip surrounding plain quotes (single or double only — not backticks,
+    # because that would mis-strip ``...`` that somehow survived the markdown
+    # check).
+    for q in ('"', "'"):
         if s.startswith(q) and s.endswith(q) and len(s) >= 2:
             s = s[1:-1].strip()
-    # Strip markdown fences
-    if s.startswith("```") and s.endswith("```"):
-        s = s.strip("`").strip()
-    # If model answered with a leading "A " or "The " prefix — fine, keep
     # Collapse whitespace
     s = " ".join(s.split())
+    # Strip generic openers like "BP_X is an actor blueprint that ..."
+    s = _strip_generic_opener(s)
     # Drop trailing period for consistency
     if s.endswith("."):
         s = s[:-1]
