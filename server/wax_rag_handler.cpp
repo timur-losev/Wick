@@ -698,10 +698,43 @@ std::string WaxRAGHandler::handle_remember(const Poco::JSON::Object::Ptr& params
     const auto metadata_map = ParseStringMetadataObject(params);
 
     try {
+        const auto t0 = std::chrono::steady_clock::now();
         orchestrator_->Remember(content, metadata_map);
-        return "OK";
+        const auto elapsed_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::steady_clock::now() - t0).count();
+
+        // ── File logging for remember analysis ──
+        static const auto remember_log_path = EnvString("WAXCPP_REMEMBER_LOG");
+        if (remember_log_path.has_value() && !remember_log_path->empty()) {
+            try {
+                std::ofstream log_file(*remember_log_path, std::ios::app);
+                if (log_file) {
+                    const auto now = std::chrono::system_clock::now();
+                    const auto now_t = std::chrono::system_clock::to_time_t(now);
+                    char time_buf[64]{};
+                    std::strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", std::localtime(&now_t));
+
+                    log_file << "════════════════════════════════════════\n"
+                             << "TIME: " << time_buf << "  (" << elapsed_ms << "ms)\n"
+                             << "SIZE: " << content.size() << " bytes\n";
+                    for (const auto& [k, v] : metadata_map) {
+                        log_file << "  " << k << ": " << v << "\n";
+                    }
+                    log_file << "────────────────────────────────────────\n"
+                             << content.substr(0, 500);
+                    if (content.size() > 500) {
+                        log_file << "\n... (" << (content.size() - 500) << " bytes truncated)";
+                    }
+                    log_file << "\n────────────────────────────────────────\n\n";
+                }
+            } catch (...) {
+                // never fail the request due to logging
+            }
+        }
+
+        return "{\"status\":\"ok\"}";
     } catch (const std::exception& e) {
-        return std::string("Error: ") + e.what();
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
     }
 }
 
@@ -1011,9 +1044,9 @@ std::string WaxRAGHandler::handle_flush(const Poco::JSON::Object::Ptr& params) {
 
     try {
         orchestrator_->Flush();
-        return "OK";
+        return "{\"status\":\"ok\"}";
     } catch (const std::exception& e) {
-        return std::string("Error: ") + e.what();
+        return "{\"error\":\"" + JsonEscape(e.what()) + "\"}";
     }
 }
 

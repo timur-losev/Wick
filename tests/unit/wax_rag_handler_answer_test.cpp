@@ -146,7 +146,8 @@ void RememberWithMetadata(waxcpp::server::WaxRAGHandler& handler,
   params->set("content", content);
   params->set("metadata", metadata);
   const auto reply = handler.handle_remember(params);
-  Require(reply == "OK", "remember call failed: " + reply);
+  Require(reply.find("\"status\"") != std::string::npos && reply.find("\"ok\"") != std::string::npos,
+          "remember call failed: " + reply);
 }
 
 std::unique_ptr<waxcpp::server::LlamaCppGenerationClient> MakeStubGenerationClient(
@@ -208,7 +209,7 @@ void ScenarioAnswerGenerateUsesContextBudgetAndCitations() {
                        30,
                        40,
                        "BetaFn");
-  Require(handler.handle_flush(Poco::JSON::Object::Ptr{}) == "OK", "flush must succeed");
+  Require(handler.handle_flush(Poco::JSON::Object::Ptr{}) .find("\"ok\"") != std::string::npos, "flush must succeed");
 
   Poco::JSON::Object::Ptr params = new Poco::JSON::Object();
   params->set("query", "shared");
@@ -437,7 +438,7 @@ void ScenarioFactLifecycleApisWorkAndPersist() {
     Require(final_search->optValue<bool>("pinned", false), "search result must expose pinned=true");
 
     const auto flush_reply = handler.handle_flush(Poco::JSON::Object::Ptr{});
-    Require(flush_reply == "OK", "flush must succeed after fact lifecycle operations");
+    Require(flush_reply .find("\"ok\"") != std::string::npos, "flush must succeed after fact lifecycle operations");
   }
 
   {
@@ -567,7 +568,7 @@ void ScenarioAnswerGenerateIsDeterministicAcrossCallsAndReopen() {
                          50,
                          60,
                          "Gamma");
-    Require(handler.handle_flush(Poco::JSON::Object::Ptr{}) == "OK", "flush must succeed");
+    Require(handler.handle_flush(Poco::JSON::Object::Ptr{}) .find("\"ok\"") != std::string::npos, "flush must succeed");
 
     const auto first = run_answer(handler);
     const auto second = run_answer(handler);
