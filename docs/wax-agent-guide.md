@@ -214,6 +214,46 @@ The agent should **not** run the export itself — ask the user to export Bluepr
 
 ### Searching
 
+#### Where to look first — C++ or BP?
+
+By project design **all logic lives in C++**; Blueprints are thin wiring.
+Many subsystems simply have no BP equivalent — don't waste a search hop
+looking for them in `wax_bp_*`.
+
+| Task type | Search first | Why |
+|-----------|--------------|-----|
+| Component / subsystem behaviour (`UVehicleDriverComponent::ExitVehicle`, `ULyraHeroComponent::SetupPlayerInputComponent`) | `wax_recall` (C++) | Logic in `.cpp/.h`; BP only listens to delegates |
+| GAS Ability behaviour (Activate / EndAbility) | `wax_bp_semantic_search` + `kind_filter: "gameplay_ability"` | Usually a `GA_*` BP with C++ helpers |
+| GameplayEffect (damage, heal, modifiers) | `wax_bp_semantic_search` + `kind_filter: "gameplay_effect"` | Almost always BP |
+| GameplayCue (VFX/SFX trigger) | `wax_bp_semantic_search` + `kind_filter: "gameplay_cue"` | Almost always BP |
+| AnimBlueprint state, linked layers | Either, depending on whether you want C++ `ULyraAnimInstance` or the `ABP_*` BP | Both halves matter |
+| Widget UI behaviour | `wax_bp_semantic_search` + `kind_filter: "widget"` | All widgets are BP |
+| Input mapping / actions | `wax_bp_semantic_search` (`IMC_*`, `IA_*`) | Pure data assets |
+
+**Rule of thumb**: if you're looking for a class whose name starts with
+`U…Component`, `A…`, `F…Settings` → use `wax_recall`. If the entity name
+starts with `BP_/B_/GA_/GE_/GC_/W_/ABP_/AN_/IMC_/IA_` → use
+`wax_bp_semantic_search`.
+
+#### How to read scores
+
+**`wax_recall` (C++ BM25)** — small numbers (typically `0.005–0.01`):
+- `score ≥ 0.005` is worth reading
+- top items typically within 10–30 % of each other → all relevant
+- top-1 `< 0.003` → weak match; broaden the query (synonyms, neighbouring class names)
+
+**`wax_bp_semantic_search`** (hybrid) — typical range `1–10`:
+- `score ≥ 5` → high confidence; read `purpose` to confirm
+- `score 2–5` → partial; verify the purpose actually matches before trusting
+- `score < 2` → almost certainly nothing in BP-domain matches → switch to
+  `wax_recall` (C++) or `wax_fact_search` with a `cpp:` prefix
+- **All hits ≤ 1.5 on a sane query → the feature isn't in BP, it's in C++**
+
+**`wax_bp_semantic_search` with `mode: "knn"`** (cosine only) — `0–1`:
+- `≥ 0.85` strong semantic match
+- `0.80–0.85` adjacent topic
+- `< 0.80` likely false positive
+
 #### For C++: `wax_recall` and `wax_fact_search`
 
 **`wax_recall`** — full-text BM25 search over indexed C++ code.
