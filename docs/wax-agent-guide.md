@@ -13,6 +13,28 @@ When implementing or modifying gameplay functionality:
 2. Generate a minimal `.bpi_json` intent to wire the C++ function into the Blueprint graph
 3. Import back into UE5
 
+### Quick CLI: `wax.ps1`
+
+For PowerShell-based agents and humans who don't have MCP available, the
+`scripts/wax.ps1` helper provides one-line access to every WAX backend
+without quoting headaches:
+
+```powershell
+.\scripts\wax.ps1 health                          # status of all 3 backends
+.\scripts\wax.ps1 bp "ability that disables input" -K 10
+.\scripts\wax.ps1 bp "weapon pickup" -KindFilter gameplay_ability
+.\scripts\wax.ps1 facts bp:GA_SpawnEffect
+.\scripts\wax.ps1 recall "ULyraAbilitySystemComponent InitAbilityActorInfo"
+.\scripts\wax.ps1 fact cpp:UCharacterMovementComponent -Limit 30
+.\scripts\wax.ps1 refresh bp:GA_SpawnEffect
+.\scripts\wax.ps1 help
+```
+
+> **Do not call `/embed` directly to "search"** — it only returns a 1536-dim
+> vector. Search requires `embed → ES kNN`. The helper above does both;
+> the `wax_bp_semantic_search` MCP tool does both. Raw `/embed` alone
+> never produces hits.
+
 ### Available Tools
 
 **For C++ code:**
