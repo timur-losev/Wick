@@ -42,6 +42,7 @@ endif()
 add_executable(waxcpp_rag_server
   bpl_json_compressor.cpp
   bpl_json_patch_compiler.cpp
+  bpl_structural_enricher.cpp
   fact_service.cpp
   index_job_manager.cpp
   llama_cpp_generation_client.cpp

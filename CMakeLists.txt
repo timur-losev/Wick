@@ -458,6 +458,7 @@ if (WAXCPP_BUILD_TESTS)
       server/ue5_chunk_manifest.cpp
       server/bpl_json_compressor.cpp
       server/bpl_json_patch_compiler.cpp
+      server/bpl_structural_enricher.cpp
       server/llama_cpp_generation_client.cpp
       server/llama_cpp_embedding_provider.cpp
       server/regex_ue5_enricher.cpp
@@ -490,6 +491,7 @@ if (WAXCPP_BUILD_TESTS)
       server/ue5_chunk_manifest.cpp
       server/bpl_json_compressor.cpp
       server/bpl_json_patch_compiler.cpp
+      server/bpl_structural_enricher.cpp
       server/llama_cpp_generation_client.cpp
       server/llama_cpp_embedding_provider.cpp
       server/regex_ue5_enricher.cpp
@@ -589,6 +591,23 @@ if (WAXCPP_BUILD_TESTS)
       target_compile_options(waxcpp_bpl_json_patch_compiler_test PRIVATE -Wall -Wextra -Wpedantic)
     endif()
     add_test(NAME waxcpp_bpl_json_patch_compiler_test COMMAND waxcpp_bpl_json_patch_compiler_test)
+
+    add_executable(waxcpp_bpl_structural_enricher_test
+      tests/unit/bpl_structural_enricher_test.cpp
+      server/bpl_structural_enricher.cpp
+    )
+    target_link_libraries(waxcpp_bpl_structural_enricher_test PRIVATE
+      waxcpp
+      Poco::JSON
+      Poco::Foundation
+    )
+    target_include_directories(waxcpp_bpl_structural_enricher_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/server)
+    if (MSVC)
+      target_compile_options(waxcpp_bpl_structural_enricher_test PRIVATE /W4 /permissive-)
+    else()
+      target_compile_options(waxcpp_bpl_structural_enricher_test PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+    add_test(NAME waxcpp_bpl_structural_enricher_test COMMAND waxcpp_bpl_structural_enricher_test)
   endif()
 
   add_executable(waxcpp_structured_memory_store_test tests/unit/structured_memory_store_test.cpp)
@@ -798,10 +817,14 @@ if (WAXCPP_BUILD_TESTS)
   endif()
   target_precompile_headers(waxcpp_mv2s_vacuum REUSE_FROM waxcpp)
 
-  # Blueprint structural enricher — proof of concept
-  add_executable(waxcpp_bpl_structural_enricher_poc tools/bpl_structural_enricher_poc.cpp)
+  # Blueprint structural enricher — CLI wrapper over server/bpl_structural_enricher
+  add_executable(waxcpp_bpl_structural_enricher_poc
+    tools/bpl_structural_enricher_poc.cpp
+    server/bpl_structural_enricher.cpp
+  )
   target_link_libraries(waxcpp_bpl_structural_enricher_poc PRIVATE
     waxcpp Poco::JSON Poco::Foundation)
+  target_include_directories(waxcpp_bpl_structural_enricher_poc PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/server)
   if (MSVC)
     target_compile_options(waxcpp_bpl_structural_enricher_poc PRIVATE /W4 /permissive-)
   else()
