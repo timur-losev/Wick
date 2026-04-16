@@ -129,13 +129,21 @@ describe("wax_bp_* MCP tools", async () => {
 
   // ── Smoke: tool registration (no services required) ─────────────────────
 
-  test("registers wax_bp_semantic_search and wax_bp_facts in tools/list", async () => {
+  test("registers wax_bp_* and wax_blueprint_refresh in tools/list", async () => {
     const tools = await client.listTools();
     const names = tools.map((t) => t.name);
-    assert.ok(names.includes("wax_bp_semantic_search"),
-      `missing wax_bp_semantic_search; got ${names.join(", ")}`);
-    assert.ok(names.includes("wax_bp_facts"),
-      `missing wax_bp_facts; got ${names.join(", ")}`);
+    for (const expected of ["wax_bp_semantic_search", "wax_bp_facts", "wax_blueprint_refresh"]) {
+      assert.ok(names.includes(expected), `missing ${expected}; got ${names.join(", ")}`);
+    }
+  });
+
+  test("wax_blueprint_refresh has required input schema", async () => {
+    const tools = await client.listTools();
+    const t = tools.find((x) => x.name === "wax_blueprint_refresh");
+    assert.ok(t, "wax_blueprint_refresh not found");
+    assert.deepEqual(t.inputSchema.required, ["export_dir"]);
+    assert.ok(t.inputSchema.properties.entity);
+    assert.ok(t.inputSchema.properties.export_dir);
   });
 
   test("wax_bp_semantic_search has required input schema", async () => {
@@ -171,6 +179,21 @@ describe("wax_bp_* MCP tools", async () => {
 
   test("wax_bp_facts rejects non-'bp:' prefix", async () => {
     const r = await client.callTool("wax_bp_facts", { entity: "cpp:AActor" });
+    assert.equal(r.isError, true);
+    assert.match(r.content[0].text, /must start with 'bp:'/);
+  });
+
+  test("wax_blueprint_refresh rejects missing export_dir", async () => {
+    const r = await client.callTool("wax_blueprint_refresh", { entity: "bp:X" });
+    assert.equal(r.isError, true);
+    assert.match(r.content[0].text, /export_dir is required/i);
+  });
+
+  test("wax_blueprint_refresh rejects non-'bp:' entity", async () => {
+    const r = await client.callTool("wax_blueprint_refresh", {
+      entity: "cpp:Foo",
+      export_dir: "J:/Temp/BlueprintExports",
+    });
     assert.equal(r.isError, true);
     assert.match(r.content[0].text, /must start with 'bp:'/);
   });
@@ -250,5 +273,33 @@ describe("wax_bp_* MCP tools", async () => {
       });
       assert.equal(r.isError, true);
       assert.match(r.content[0].text, /not found in index/);
+    });
+
+  const EXPORT_DIR = process.env.WAX_BP_EXPORT_DIR || "J:/Temp/BlueprintExports";
+
+  test("[live] wax_blueprint_refresh returns 'unchanged' for an unmodified BP",
+    { skip: !servicesUp && "services unavailable" },
+    async () => {
+      const r = await client.callTool("wax_blueprint_refresh", {
+        entity: "bp:GA_SpawnEffect",
+        export_dir: EXPORT_DIR,
+      });
+      assert.ok(!r.isError, `refresh errored: ${r.content?.[0]?.text}`);
+      const text = r.content[0].text;
+      // After the earlier run_full_reindex, GA_SpawnEffect is already indexed;
+      // a fresh refresh with no file change must be a no-op.
+      assert.match(text, /Status: unchanged/);
+      assert.match(text, /Entity: bp:GA_SpawnEffect/);
+    });
+
+  test("[live] wax_blueprint_refresh reports not_found for missing BP",
+    { skip: !servicesUp && "services unavailable" },
+    async () => {
+      const r = await client.callTool("wax_blueprint_refresh", {
+        entity: "bp:DEFINITELY_MISSING_ASSET_12345",
+        export_dir: EXPORT_DIR,
+      });
+      assert.equal(r.isError, true);
+      assert.match(r.content[0].text, /Not found/i);
     });
 });

@@ -220,6 +220,45 @@ Output:
 - Entity not starting with `bp:` → 400
 - Entity not in index → 404 (`"Blueprint bp:X not found in index"`)
 
+#### wax_blueprint_refresh
+
+Re-parse an exported `.bpl_json`, re-embed, and upsert into the `wax_bp_v1` index. Makes the semantic index reflect your edits after `wax_blueprint_patch` + `wax_blueprint_import`.
+
+The implementation is idempotent: the structural hash of the freshly parsed BP is compared with the one stored in ES. If they match, nothing is re-embedded or written. Otherwise, the existing purpose is retained and only the structural parts + embedding are updated.
+
+```
+Input:
+  entity: string (optional) — one BP to refresh, e.g. "bp:GA_SpawnEffect".
+                              If omitted, reindexes every .bpl_json in export_dir.
+  export_dir: string (required) — path to the BlueprintExports directory.
+
+Output (single-BP mode):
+  {
+    status: "updated" | "indexed" | "unchanged" | "not_found" | "parse_failed",
+    entity: "bp:X",
+    structural_hash: "16-hex-chars",
+    prev_hash: "16-hex-chars" | null,
+    purpose_stale: true | false,    # true if we kept an old purpose
+    elapsed_ms: number
+  }
+
+Output (bulk mode — entity omitted):
+  {
+    total: number,
+    updated: number,    # existing doc had different hash → reindexed
+    indexed: number,    # no existing doc → created fresh
+    unchanged: number,  # hash matched → skipped
+    not_found: number,
+    parse_failed: number,
+    by_entity: [...],   # per-BP results
+    elapsed_ms: number
+  }
+```
+
+**Important**: this does **not** regenerate `purpose`. That requires the LLM, which competes for the same GPU as the embedding model. Use `scripts/run_full_reindex.ps1` for a full rebuild that also refreshes purposes.
+
+**Backed by** the embedding service endpoints `/bp_refresh` (single) and `/bp_reindex_all` (bulk). See `services/embedding/bp_refresh.py` for the pure-function implementation.
+
 #### wax_blueprint_read
 
 Read full Blueprint JSON from exported `.bpl_json` file.

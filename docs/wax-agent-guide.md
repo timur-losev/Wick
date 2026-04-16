@@ -34,6 +34,7 @@ When implementing or modifying gameplay functionality:
 | `wax_blueprint_patch` | Apply `.bpi_json` intent patch to a Blueprint |
 | `wax_blueprint_write` | Write full Blueprint JSON to disk (with backup) |
 | `wax_blueprint_import` | Import `.bpl_json` into UE5 via commandlet + compile |
+| `wax_blueprint_refresh` | Re-parse + re-embed + ES upsert after a patch (call after patch+import so subsequent searches see the change) |
 
 **Note**: `wax_fact_search` with `entity_prefix="bp:"` is legacy — it returns a few sparse LLM-extracted facts. Always prefer `wax_bp_facts` or `wax_bp_semantic_search` for Blueprint work.
 
@@ -68,7 +69,8 @@ The system has three layers connected by `.bpl_json` files on disk:
 4. Build       Rebuild project (agent prompts user, or runs build command)
 5. Patch BP    wax_blueprint_patch with .bpi_json (max 7 nodes)
 6. Import      wax_blueprint_import with compile=true, save=true
-7. Update WAX  Register new code and facts in WAX index (see below)
+7. Refresh     wax_blueprint_refresh({entity, export_dir}) → ES sees new facts
+               Register new C++ code in WAX index (see "Keeping WAX in Sync")
 8. Verify      Check import stdout/stderr → if errors, fix and retry (max 3)
 ```
 
@@ -79,7 +81,7 @@ The system has three layers connected by `.bpl_json` files on disk:
 2. Inspect     wax_bp_facts (structural) + wax_blueprint_compressed_read (graph)
 3. Patch BP    wax_blueprint_patch
 4. Import      wax_blueprint_import
-5. Update WAX  Register new/changed Blueprint facts
+5. Refresh     wax_blueprint_refresh({entity, export_dir})
 ```
 
 ### Keeping WAX in Sync

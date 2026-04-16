@@ -12,6 +12,7 @@
 //    wax_blueprint_*          — compressed_read / patch / write / import
 //    wax_bp_semantic_search   — semantic (kNN / BM25 / hybrid) over indexed BPs
 //    wax_bp_facts             — exact BP lookup by entity (from ES)
+//    wax_blueprint_refresh    — re-parse + re-embed + ES upsert after a patch
 //
 //  Env:
 //    WAX_URL              — WAX C++ server URL (default http://127.0.0.1:8080)
@@ -138,6 +139,34 @@ async function esGetDoc(id) {
     throw new Error(`ES HTTP ${res.status}: ${await res.text()}`);
   }
   return await res.json();
+}
+
+async function embedServicePost(path, body, { timeoutMs = 120000 } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(`${EMBED_URL}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    const text = await res.text();
+    let json;
+    try { json = JSON.parse(text); } catch { json = { raw: text }; }
+    if (!res.ok) {
+      const detail = json?.detail ?? json?.raw ?? text;
+      const err = new Error(
+        `Embed HTTP ${res.status}: ${typeof detail === "string" ? detail : JSON.stringify(detail)}`
+      );
+      err.status = res.status;
+      err.detail = detail;
+      throw err;
+    }
+    return json;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 // ── MCP Server ───────────────────────────────────────────────
@@ -401,6 +430,33 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           },
         },
         required: ["entity"],
+      },
+    },
+    {
+      name: "wax_blueprint_refresh",
+      description:
+        "Re-parse an exported .bpl_json file and update its entry in the WAX " +
+        "Blueprint semantic index (Elasticsearch). Call this AFTER wax_blueprint_patch " +
+        "and wax_blueprint_import if you want subsequent wax_bp_semantic_search and " +
+        "wax_bp_facts queries to reflect your changes. Idempotent — if the structural " +
+        "hash already matches, no re-embedding happens. The purpose field is NOT " +
+        "regenerated (that requires the LLM on the same GPU); an existing purpose is " +
+        "retained. For a full purpose-regen rebuild, use scripts/run_full_reindex.ps1.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          entity: {
+            type: "string",
+            description:
+              "Full entity id to refresh (e.g. 'bp:GA_SpawnEffect'). " +
+              "Omit to reindex every .bpl_json in export_dir.",
+          },
+          export_dir: {
+            type: "string",
+            description: "Path to the BlueprintExports directory on disk.",
+          },
+        },
+        required: ["export_dir"],
       },
     },
   ],
@@ -800,6 +856,76 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         return {
           content: [{ type: "text", text: sections.join("\n") }],
         };
+      }
+
+      case "wax_blueprint_refresh": {
+        const exportDir = (args.export_dir || "").toString().trim();
+        if (!exportDir) {
+          return {
+            content: [{ type: "text", text: "Error: export_dir is required" }],
+            isError: true,
+          };
+        }
+        const entity = (args.entity || "").toString().trim();
+
+        if (entity) {
+          if (!entity.startsWith("bp:")) {
+            return {
+              content: [{
+                type: "text",
+                text: `Error: entity must start with 'bp:' (got ${JSON.stringify(entity)})`,
+              }],
+              isError: true,
+            };
+          }
+
+          let r;
+          try {
+            r = await embedServicePost("/bp_refresh",
+              { entity, export_dir: exportDir });
+          } catch (err) {
+            if (err.status === 404) {
+              const msg = typeof err.detail === "string"
+                ? err.detail
+                : (err.detail?.message || JSON.stringify(err.detail));
+              return {
+                content: [{ type: "text", text: `Not found: ${msg}` }],
+                isError: true,
+              };
+            }
+            throw err;
+          }
+
+          const lines = [
+            `Status: ${r.status}`,
+            `Entity: ${r.entity}`,
+          ];
+          if (r.structural_hash) lines.push(`Structural hash: ${r.structural_hash}`);
+          if (r.prev_hash) lines.push(`Previous hash:   ${r.prev_hash}`);
+          if (r.purpose_stale) {
+            lines.push("");
+            lines.push("Note: existing purpose was retained. Run run_full_reindex.ps1 to regenerate.");
+          }
+          if (r.elapsed_ms != null) lines.push(`Elapsed: ${r.elapsed_ms} ms`);
+
+          return { content: [{ type: "text", text: lines.join("\n") }] };
+        }
+
+        // Bulk: reindex all BPs in the directory.
+        const r = await embedServicePost("/bp_reindex_all",
+          { export_dir: exportDir, entities: null },
+          { timeoutMs: 600000 });
+
+        const summary = [
+          `Bulk reindex complete (${r.elapsed_ms} ms total)`,
+          `  total:       ${r.total}`,
+          `  updated:     ${r.updated}`,
+          `  indexed:     ${r.indexed}     (new docs)`,
+          `  unchanged:   ${r.unchanged}   (hash matched, skipped)`,
+          `  not_found:   ${r.not_found}`,
+          `  parse_failed:${r.parse_failed}`,
+        ].join("\n");
+        return { content: [{ type: "text", text: summary }] };
       }
 
       default:
