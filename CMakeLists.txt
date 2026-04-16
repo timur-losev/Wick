@@ -457,6 +457,7 @@ if (WAXCPP_BUILD_TESTS)
       server/ue5_filesystem_scanner.cpp
       server/ue5_chunk_manifest.cpp
       server/bpl_json_compressor.cpp
+      server/bpl_json_patch_compiler.cpp
       server/llama_cpp_generation_client.cpp
       server/llama_cpp_embedding_provider.cpp
       server/regex_ue5_enricher.cpp
@@ -488,6 +489,7 @@ if (WAXCPP_BUILD_TESTS)
       server/ue5_filesystem_scanner.cpp
       server/ue5_chunk_manifest.cpp
       server/bpl_json_compressor.cpp
+      server/bpl_json_patch_compiler.cpp
       server/llama_cpp_generation_client.cpp
       server/llama_cpp_embedding_provider.cpp
       server/regex_ue5_enricher.cpp
@@ -795,6 +797,16 @@ if (WAXCPP_BUILD_TESTS)
     target_compile_options(waxcpp_mv2s_vacuum PRIVATE -Wall -Wextra -Wpedantic)
   endif()
   target_precompile_headers(waxcpp_mv2s_vacuum REUSE_FROM waxcpp)
+
+  # Blueprint structural enricher — proof of concept
+  add_executable(waxcpp_bpl_structural_enricher_poc tools/bpl_structural_enricher_poc.cpp)
+  target_link_libraries(waxcpp_bpl_structural_enricher_poc PRIVATE
+    waxcpp Poco::JSON Poco::Foundation)
+  if (MSVC)
+    target_compile_options(waxcpp_bpl_structural_enricher_poc PRIVATE /W4 /permissive-)
+  else()
+    target_compile_options(waxcpp_bpl_structural_enricher_poc PRIVATE -Wall -Wextra -Wpedantic)
+  endif()
 endif()
 
 if (MSVC)

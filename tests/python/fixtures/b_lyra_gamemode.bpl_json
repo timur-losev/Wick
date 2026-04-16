@@ -1,0 +1,164 @@
+﻿{
+	"blueprint": "/Game/B_LyraGameMode.B_LyraGameMode",
+	"asset_path": "/Game/B_LyraGameMode.B_LyraGameMode",
+	"asset_name": "B_LyraGameMode",
+	"asset_class": "/Script/Engine.Blueprint",
+	"asset_kind": "blueprint",
+	"graphs": [
+		{
+			"name": "UserConstructionScript",
+			"graph_guid": "0A9F4B5F49BA1E6246E705A1EB292B9D",
+			"schema_class": "/Script/BlueprintGraph.EdGraphSchema_K2",
+			"nodes": [
+				{
+					"node_guid": "52E599B1477E87683F5BCF921FF2A75B",
+					"class_path": "/Script/BlueprintGraph.K2Node_FunctionEntry",
+					"title": "Construction Script",
+					"pos_x": 0,
+					"pos_y": 0,
+					"comment": "",
+					"pins": [
+						{
+							"pin_id": "6EC6CAC844278A50E6C9CBA8F180ADE4",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				}
+			],
+			"links": []
+		},
+		{
+			"name": "EventGraph",
+			"graph_guid": "BA5D0D2444242AB7944F24935B456591",
+			"schema_class": "/Script/BlueprintGraph.EdGraphSchema_K2",
+			"nodes": [
+				{
+					"node_guid": "74085B5C4D7DAEB3CFAE25B0F578BBD5",
+					"class_path": "/Script/BlueprintGraph.K2Node_Event",
+					"title": "Event BeginPlay",
+					"pos_x": 0,
+					"pos_y": 0,
+					"comment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"event_ref":
+					{
+						"member_name": "ReceiveBeginPlay",
+						"member_parent": "/Script/Engine.Actor",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "None",
+					"override_function": true,
+					"pins": [
+						{
+							"pin_id": "DB1BC868404426B5CF7DEC97B3295B56",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "8D4D3E5E46C3A2D4278F73B167EAFA43",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "5F77D8204DCEECFC4C7C3E86A7F6E274",
+					"class_path": "/Script/BlueprintGraph.K2Node_Event",
+					"title": "Event Tick",
+					"pos_x": 0,
+					"pos_y": 208,
+					"comment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"event_ref":
+					{
+						"member_name": "ReceiveTick",
+						"member_parent": "/Script/Engine.Actor",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "None",
+					"override_function": true,
+					"pins": [
+						{
+							"pin_id": "34041636415D30986D66B8AC8FCBE6B9",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "A15AD23D41C9EC082FFA6086D4E5B012",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "E92B3E8E4BE540665BA356AB7CFE56FB",
+							"name": "DeltaSeconds",
+							"direction": "out",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.0",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				}
+			],
+			"links": []
+		}
+	],
+	"variables": []
+}

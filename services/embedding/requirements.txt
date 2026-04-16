@@ -1,0 +1,27 @@
+# PyTorch with CUDA 12.4 — matches RTX 4090 driver 595.71 / CUDA 13.2 (backward compat).
+# Install via:
+#   pip install --index-url https://download.pytorch.org/whl/cu124 torch
+# then the rest from PyPI.
+torch>=2.5.0,<3.0.0
+
+# Embedding framework (supports Qodo-Embed-1-1.5B out of the box).
+# transformers is pinned <4.47 because Qodo-Embed-1-1.5B ships custom modeling_qwen.py
+# that calls past_key_values.get_usable_length() — removed in transformers 4.47+.
+sentence-transformers>=3.3.0,<4.0.0
+transformers>=4.45.0,<4.47.0
+accelerate>=1.0.0,<2.0.0
+
+# HTTP service.
+fastapi>=0.115.0,<1.0.0
+uvicorn[standard]>=0.32.0,<1.0.0
+pydantic>=2.9.0,<3.0.0
+
+# Elasticsearch client (used by index/query helper scripts, not by the service itself).
+elasticsearch>=8.14.0,<9.0.0
+
+# Utilities.
+numpy>=1.26.0,<3.0.0
+python-dotenv>=1.0.0
+
+# Testing.
+pytest>=8.0.0,<9.0.0

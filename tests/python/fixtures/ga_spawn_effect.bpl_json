@@ -1,0 +1,2652 @@
+﻿{
+	"blueprint": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect",
+	"asset_path": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect",
+	"asset_name": "GA_SpawnEffect",
+	"asset_class": "/Script/Engine.Blueprint",
+	"asset_kind": "blueprint",
+	"graphs": [
+		{
+			"name": "EventGraph",
+			"graph_guid": "7774E17E47A75DE1BEF25EB55B8F3CCE",
+			"schema_class": "/Script/BlueprintGraph.EdGraphSchema_K2",
+			"nodes": [
+				{
+					"node_guid": "8DA2F46449E516FC574D8A8294794F31",
+					"class_path": "/Script/BlueprintGraph.K2Node_Event",
+					"title": "Event ActivateAbility",
+					"pos_x": -2992,
+					"pos_y": -32,
+					"comment": "",
+					"event_ref":
+					{
+						"member_name": "K2_ActivateAbility",
+						"member_parent": "/Script/GameplayAbilities.GameplayAbility",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "None",
+					"override_function": true,
+					"pins": [
+						{
+							"pin_id": "38A54E384144B6D435B57697367514C4",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "BB0B82A948856C8FA7ED34A6B0F5C841",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "F51B92084559690EAD0245849DD5110D",
+					"class_path": "/Script/BlueprintGraph.K2Node_Event",
+					"title": "Event OnEndAbility",
+					"pos_x": -2976,
+					"pos_y": 496,
+					"comment": "",
+					"event_ref":
+					{
+						"member_name": "K2_OnEndAbility",
+						"member_parent": "/Script/GameplayAbilities.GameplayAbility",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "None",
+					"override_function": true,
+					"pins": [
+						{
+							"pin_id": "1E1FBA4F407BB87B3BE5F49994B9D597",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "5A8102954D67D99512C8989AF77F4B39",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "5EAE65714002BAE17CCAE1830C512841",
+							"name": "bWasCancelled",
+							"direction": "out",
+							"type_cat": "bool",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "false",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "C298FFC64A1703A3D5B738B650128B58",
+					"class_path": "/Script/GameplayAbilitiesEditor.K2Node_LatentAbilityCall",
+					"title": "PlayMontageAndWait",
+					"pos_x": -320,
+					"pos_y": 240,
+					"comment": "",
+					"pins": [
+						{
+							"pin_id": "89D6664244AE419A069DA5A74407471B",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "885BB82A452CB81A826EFBB55535C971",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "A7C6F5C549B2A8B56D8648B18E408A34",
+							"name": "AsyncTaskProxy",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.AbilityTask_PlayMontageAndWait",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "1F58EC7D4BC4DD8079E94D924DBF6F88",
+							"name": "OnCompleted",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "1B2FC097463710441783B2894EC84E92",
+							"name": "OnBlendOut",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "6CA0A585442C7C31195C8AAAAE974F52",
+							"name": "OnInterrupted",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "DE89E9B44353C614B36B32A6F043325E",
+							"name": "OnCancelled",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "A79063814DDB61189FC4E9AD5A54462D",
+							"name": "OwningAbility",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayAbility",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "636C45EB461ACA52620383860EC65093",
+							"name": "TaskInstanceName",
+							"direction": "in",
+							"type_cat": "name",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "None",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "0E7E93C14C64E4D44423C192CFE04951",
+							"name": "MontageToPlay",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.AnimMontage",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "B52B03234AAA5C280C79BD8112D21DE0",
+							"name": "Rate",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "1.000000",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "56719B2345A8773FA49AE3A86255B8E4",
+							"name": "StartSection",
+							"direction": "in",
+							"type_cat": "name",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "None",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "2B520DF6461CBF80861EBB9C439C09FF",
+							"name": "bStopWhenAbilityEnds",
+							"direction": "in",
+							"type_cat": "bool",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "false",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "75ECD57F4E91E4A1AEEE94859799C518",
+							"name": "AnimRootMotionTranslationScale",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "1.000000",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "73AB56EF42066A5717293D9137D9C4AC",
+							"name": "StartTimeSeconds",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.000000",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "6DCEFE6346781FEA087DF899170411AA",
+							"name": "bAllowInterruptAfterBlendOut",
+							"direction": "in",
+							"type_cat": "bool",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "false",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "10A215024E93E3AB9BDA63B28E179B85",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "End Ability",
+					"pos_x": 144,
+					"pos_y": 272,
+					"comment": "",
+					"function":
+					{
+						"member_name": "K2_EndAbility",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "A0AA818D4F3BC8F7223537938AD1508D",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "D5D6FFF24E852D8B4EFE54A63E40136F",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "FFA030814B129684F346C797B12F5A96",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayAbility",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "0F49E63341B26AB5534756BDC71AC33A",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Set Ignore Move Input",
+					"pos_x": -1712,
+					"pos_y": 1376,
+					"comment": "",
+					"function":
+					{
+						"member_name": "SetIgnoreMoveInput",
+						"member_parent": "/Script/Engine.Controller",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "531C6952432D24B63C41C2B7E26D361C",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "CEF608F54BE49971C6A8CA98E14B2071",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "2F2174E74F2E28E3745E4EA0297C2F9C",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "05D9DCE4443BE6C35DB19190FCDA6B35",
+							"name": "bNewMoveInput",
+							"direction": "in",
+							"type_cat": "bool",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "false",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "90EA01004F57B77343167E802D5973EA",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableGet",
+					"title": "Get SpawnMontage",
+					"pos_x": -528,
+					"pos_y": 400,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "SpawnMontage",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "2AA9A1464E6212920958CC87051BA31B",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "247C687F44997ADB46DD0D9FE55530D4",
+							"name": "SpawnMontage",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.AnimMontage",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "5909241C450079AE923142830F1B2D64",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "8113C68D47DBF99A62863F9AD895EF77",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Get Ability System Component from Actor Info",
+					"pos_x": -2240,
+					"pos_y": 80,
+					"comment": "",
+					"function":
+					{
+						"member_name": "GetAbilitySystemComponentFromActorInfo",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "2627547A4E161C7927E182BA7465001B",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayAbility",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "DD09658E441A206DA2731C9A95653126",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.AbilitySystemComponent",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "BC6FB61D4BB1F856D8B42489DC39AD56",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "ApplyGameplayEffectToSelf",
+					"pos_x": -1856,
+					"pos_y": -48,
+					"comment": "",
+					"function":
+					{
+						"member_name": "BP_ApplyGameplayEffectToSelf",
+						"member_parent": "/Script/GameplayAbilities.AbilitySystemComponent",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "881F076F44FD8B578A814DAD164B2561",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "F16FD8B64A6878A1E7B6B99CDA8B01F1",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "6CCEF7554658036D6E6A5F95721ED037",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.AbilitySystemComponent",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "A4FBC2C542539BAF00847FA235FA5720",
+							"name": "GameplayEffectClass",
+							"direction": "in",
+							"type_cat": "class",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayEffect",
+							"default_value": "",
+							"default_object": "/ShooterCore/Game/Respawn/GE_SpawnIn.GE_SpawnIn_C",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "FB87EC5B469611BE3D3D588CCF0895E1",
+							"name": "Level",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.0",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "DACBDF5F439F264DDE3601B73DAF2F7F",
+							"name": "EffectContext",
+							"direction": "in",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayEffectContextHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "A9F1035045349042014646820B60A28D",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.ActiveGameplayEffectHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "5051998B4958611E188589A98CB85637",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Make Effect Context",
+					"pos_x": -2160,
+					"pos_y": 160,
+					"comment": "",
+					"function":
+					{
+						"member_name": "MakeEffectContext",
+						"member_parent": "/Script/GameplayAbilities.AbilitySystemComponent",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "443ECD6E4CE2A618E847939ED2443489",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.AbilitySystemComponent",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "3EBF94B544E1EB368F58D48DDE95D759",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayEffectContextHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "1FB64FC4451E80F5F61A839E5DE21CEA",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableSet",
+					"title": "Set SpawnInGE_Spec",
+					"pos_x": -1520,
+					"pos_y": -16,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "SpawnInGE_Spec",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "EC5668EA4464C2EB7E38C29051FA8B88",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "0BE7CD614C3B9BFCCF4E4D8AB8C3A007",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "ED904630471238EF0FFF1E9D53B066B3",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "0754FFDE4E4BF3BC163F5D830ED21982",
+							"name": "SpawnInGE_Spec",
+							"direction": "in",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.ActiveGameplayEffectHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "B508AFBB4F14E091E64B59999D06183C",
+							"name": "Output_Get",
+							"direction": "out",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.ActiveGameplayEffectHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "02EF590A496C54BE6240A0B78B0714CA",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "215BF14847AD334173552CA52A2044BA",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableGet",
+					"title": "Get SpawnInGE_Spec",
+					"pos_x": -2544,
+					"pos_y": 448,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "SpawnInGE_Spec",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "EC5668EA4464C2EB7E38C29051FA8B88",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "43ECA307400A9D00569A4083B1261D12",
+							"name": "SpawnInGE_Spec",
+							"direction": "out",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.ActiveGameplayEffectHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "7C6BC03D49797F2C218F68B4DB1861B6",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "A80FCA194E4348677897808F4D377867",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "RemoveGameplayEffectFromOwnerWithHandle",
+					"pos_x": -2640,
+					"pos_y": 480,
+					"comment": "",
+					"function":
+					{
+						"member_name": "BP_RemoveGameplayEffectFromOwnerWithHandle",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "1B881F5E4D30A628772480B84229728E",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "BBF196D842E8164D7BD2E8BC12FD0DA9",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "15CBB7D2430ECEE1EA9B56B89E128C35",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayAbility",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "EF23BBA34225C18990E8B78EAA8B8C84",
+							"name": "Handle",
+							"direction": "in",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.ActiveGameplayEffectHandle",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "76E5817E48AAD78D9B46F8A8E09EA5CE",
+							"name": "StacksToRemove",
+							"direction": "in",
+							"type_cat": "int",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "-1",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "B87026E3475CB76D26BFD485B8772C4E",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Delay",
+					"pos_x": -224,
+					"pos_y": -288,
+					"comment": "",
+					"function":
+					{
+						"member_name": "Delay",
+						"member_parent": "/Script/Engine.KismetSystemLibrary",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "589F1A9941CBD22968AF7F9938410FAB",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "241ECA9442491A4DBAD4D387546DC419",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "1B1D678041D0E4F324AAE6BBEDA22FEB",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.KismetSystemLibrary",
+							"default_value": "",
+							"default_object": "/Script/Engine.Default__KismetSystemLibrary",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "CEEFAD924893CF04E083FFA3210D8C45",
+							"name": "WorldContextObject",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/CoreUObject.Object",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": true,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "E9252AFD4F610238308C2BA4C7E4438D",
+							"name": "Duration",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.2",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "4A14C1A640935E3B208E999E0802F44B",
+							"name": "LatentInfo",
+							"direction": "in",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.LatentActionInfo",
+							"default_value": "(Linkage=-1,UUID=-1,ExecutionFunction=\"\",CallbackTarget=None)",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "E564E5054A054BFB5A4459BF341368E8",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableGet",
+					"title": "Get SpawnMontage",
+					"pos_x": -272,
+					"pos_y": -416,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "SpawnMontage",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "2AA9A1464E6212920958CC87051BA31B",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "247C687F44997ADB46DD0D9FE55530D4",
+							"name": "SpawnMontage",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.AnimMontage",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "5909241C450079AE923142830F1B2D64",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "1B90ED98443DF137204993ADE4D02CA4",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Get Play Length",
+					"pos_x": -304,
+					"pos_y": -384,
+					"comment": "",
+					"function":
+					{
+						"member_name": "GetPlayLength",
+						"member_parent": "/Script/Engine.AnimationAsset",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "8ECE7C69420AEBA97B5208B56A82EDF7",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.AnimationAsset",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "8402CA8045091AC843D051A4BDEFBAB9",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.0",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "3724D1DF47026EAB39B684AC2661B5FB",
+					"class_path": "/Script/BlueprintGraph.K2Node_ExecutionSequence",
+					"title": "Sequence",
+					"pos_x": -624,
+					"pos_y": -32,
+					"comment": "",
+					"pins": [
+						{
+							"pin_id": "F35EEA1D48913573921D609E84591872",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "1858E195412903DEF0790DA69546D744",
+							"name": "then_0",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "A75D783F4F23F8EDBCFCE7A3DEFD3BF9",
+							"name": "then_1",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "E3DECABD496BB426CEB6EAA057BF64CB",
+							"name": "then_2",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "81D08AAB4B3C21BD0670088DB4A6EC22",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "End Ability",
+					"pos_x": 112,
+					"pos_y": -304,
+					"comment": "",
+					"function":
+					{
+						"member_name": "K2_EndAbility",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "A0AA818D4F3BC8F7223537938AD1508D",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "D5D6FFF24E852D8B4EFE54A63E40136F",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "FFA030814B129684F346C797B12F5A96",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/GameplayAbilities.GameplayAbility",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "897E4273411A6540FA666AAC6D53F459",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableGet",
+					"title": "Get EnableInputAfterTimeFraction",
+					"pos_x": -352,
+					"pos_y": -18,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "EnableInputAfterTimeFraction",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "B5583ED645C729701AEC779F209D3CE2",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "12346FEB4CD0424C97A1A984F46586AE",
+							"name": "EnableInputAfterTimeFraction",
+							"direction": "out",
+							"type_cat": "real",
+							"type_sub": "double",
+							"type_obj": "",
+							"default_value": "0.0",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "AF7F5CE74FA32E37F9793AAC30B77D1A",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "4203700F4EF1D9B81343BD87777B3F8B",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Delay",
+					"pos_x": 64,
+					"pos_y": 0,
+					"comment": "",
+					"function":
+					{
+						"member_name": "Delay",
+						"member_parent": "/Script/Engine.KismetSystemLibrary",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "B40C463D49FD8B63E00BD096A05F37E7",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "3041A8C54F4F6918F8425BB153BF08A2",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C3E07DFB48C66213D3B72D9A39678778",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.KismetSystemLibrary",
+							"default_value": "",
+							"default_object": "/Script/Engine.Default__KismetSystemLibrary",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "7D509FB24D9F4F25A74C4E8B0CD775DA",
+							"name": "WorldContextObject",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/CoreUObject.Object",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": true,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "9FA9065840FFCCEF14E3A99D469ED7E8",
+							"name": "Duration",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.2",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "63108B9F49D251BD2239E2B0AAEBF03D",
+							"name": "LatentInfo",
+							"direction": "in",
+							"type_cat": "struct",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.LatentActionInfo",
+							"default_value": "(Linkage=-1,UUID=-1,ExecutionFunction=\"\",CallbackTarget=None)",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "E58C9B7949A212B39994B59B0A08FA74",
+					"class_path": "/Script/BlueprintGraph.K2Node_PromotableOperator",
+					"title": "float * float",
+					"pos_x": -112,
+					"pos_y": -66,
+					"comment": "",
+					"function":
+					{
+						"member_name": "Multiply_DoubleDouble",
+						"member_parent": "/Script/Engine.KismetMathLibrary",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "4C1391D1410E42FC3F1F54821E5A335A",
+							"name": "A",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "double",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "6DDEBF7B41B4D37C4067BC8D73F3B026",
+							"name": "B",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "double",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "082F0BCB4AE823B4E8B4D892FFB04E03",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "real",
+							"type_sub": "double",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "1FC9511346B33F7E0B2F61A52220DB14",
+					"class_path": "/Script/BlueprintGraph.K2Node_CustomEvent",
+					"title": "EnableInputAgain",
+					"pos_x": -2352,
+					"pos_y": 1374,
+					"comment": "",
+					"custom_event":
+					{
+						"function_name": "EnableInputAgain",
+						"function_flags": 201457664
+					},
+					"event_ref":
+					{
+						"member_name": "None",
+						"member_parent": "",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "EnableInputAgain",
+					"override_function": false,
+					"pins": [
+						{
+							"pin_id": "3D92810C4F24B635930CAB9AD1FEE7B7",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "F34BB25E41D34A84D7BAC1A478385050",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "77DA0F694A316DB52684FC9D722361FB",
+					"class_path": "/Script/BlueprintGraph.K2Node_CustomEvent",
+					"title": "DisableInput",
+					"pos_x": -2336,
+					"pos_y": 1184,
+					"comment": "",
+					"custom_event":
+					{
+						"function_name": "DisableInput",
+						"function_flags": 201457664
+					},
+					"event_ref":
+					{
+						"member_name": "None",
+						"member_parent": "",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "DisableInput",
+					"override_function": false,
+					"pins": [
+						{
+							"pin_id": "F93675BF47DB3D259874A1B2B1EDAAC2",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C2DA881D4567053A5E7DC28BAD564087",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "6A20A6B949C19B2A620B95A00F95CED5",
+					"class_path": "/Script/BlueprintGraph.K2Node_MacroInstance",
+					"title": "Do Once",
+					"pos_x": -2064,
+					"pos_y": 1392,
+					"comment": "",
+					"macro_ref":
+					{
+						"macro_blueprint": "/Engine/EditorBlueprintResources/StandardMacros.StandardMacros",
+						"macro_graph_guid": "1281F54248A2ECB5B8B2C5B24AE6FDF4"
+					},
+					"pins": [
+						{
+							"pin_id": "34663D0B4D642385767384AA6FC2DC67",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C81D839B40C8577978673A979166AF2F",
+							"name": "Reset",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C66873EA48499ECE40A837A17C9BE181",
+							"name": "Start Closed",
+							"direction": "in",
+							"type_cat": "bool",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "true",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "96C4A1BA4A95C923B0E116993B61753C",
+							"name": "Completed",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "83C877744A1B23DA64E8E6AA02061D90",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Set Ignore Move Input",
+					"pos_x": -1712,
+					"pos_y": 1184,
+					"comment": "",
+					"function":
+					{
+						"member_name": "SetIgnoreMoveInput",
+						"member_parent": "/Script/Engine.Controller",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "531C6952432D24B63C41C2B7E26D361C",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "CEF608F54BE49971C6A8CA98E14B2071",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "2F2174E74F2E28E3745E4EA0297C2F9C",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "05D9DCE4443BE6C35DB19190FCDA6B35",
+							"name": "bNewMoveInput",
+							"direction": "in",
+							"type_cat": "bool",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "true",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "5A6E48AE40EAA7517F5FF5B66DA763C1",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Enable Input Again",
+					"pos_x": -2160,
+					"pos_y": 480,
+					"comment": "",
+					"function":
+					{
+						"member_name": "EnableInputAgain",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "1FC9511346B33F7E0B2F61A52220DB14",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "CEA622E5402280902C264DBC36D3F6FF",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "F4EFDF2D40FAF1C2440C1693D5E7CAA0",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "90902258467CF60CA8295BB653EED946",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "self",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "F19D4C1045B55B50D1B74CAD92185E7D",
+					"class_path": "/Script/BlueprintGraph.K2Node_ExecutionSequence",
+					"title": "Sequence",
+					"pos_x": -2040,
+					"pos_y": 1203,
+					"comment": "",
+					"pins": [
+						{
+							"pin_id": "8B5AF13548F35B33ADE8ADA1BB87278F",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "51E40523436708A68B1BD6A77EB61663",
+							"name": "then_0",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "1A6101FF407AA06A2A05F4A124218074",
+							"name": "then_1",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "EB0B5C734C314E8F4F43768C80F4A8AF",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Disable Input",
+					"pos_x": -1120,
+					"pos_y": -48,
+					"comment": "",
+					"function":
+					{
+						"member_name": "DisableInput",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "77DA0F694A316DB52684FC9D722361FB",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "CEBA6F804A604D2E0C4897B7AC5D7FFB",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "04BAD6E54FA0D45013494692CC061892",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "2516FCFE4E173187EB9D04AB47C3BAD3",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "self",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "11F8769340D4F7C5E65D7589E3B0EE67",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Enable Input Again",
+					"pos_x": 320,
+					"pos_y": -18,
+					"comment": "",
+					"function":
+					{
+						"member_name": "EnableInputAgain",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "1FC9511346B33F7E0B2F61A52220DB14",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "CEA622E5402280902C264DBC36D3F6FF",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "F4EFDF2D40FAF1C2440C1693D5E7CAA0",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "90902258467CF60CA8295BB653EED946",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "self",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "83E3C3A24810EF766D05D5AD85AB677F",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Get Controller from Actor Info",
+					"pos_x": -2608,
+					"pos_y": -96,
+					"comment": "",
+					"function":
+					{
+						"member_name": "GetControllerFromActorInfo",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "F2944F21485F2F93536F8B8AF7926C2A",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/LyraGame.LyraGameplayAbility",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "B952972849ECBD7D0C7E97B18D085C1A",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "D0B664DF4A903FB3D9F25197A4A630F9",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableSet",
+					"title": "Set CachedController",
+					"pos_x": -2576,
+					"pos_y": -16,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "CachedController",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "7A1EF346454043EA28FEFF8DF08E65A9",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "923359C240438BE154DC06B3640D84BF",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "B2E6A53E4C9E7888C4D45D8B797B7ECF",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C9CE797A44CB02CF3419ADADCD0BDD56",
+							"name": "CachedController",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "70C0E8FC42BF6AAB0BBF73B6FBDFDA59",
+							"name": "Output_Get",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "EA0B53384F3ED6428845EFB1D505A8B5",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "D0738D354419E30841CE00AEE4CB43EB",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableGet",
+					"title": "Get CachedController",
+					"pos_x": -1696,
+					"pos_y": 1152,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "CachedController",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "7A1EF346454043EA28FEFF8DF08E65A9",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "DFFEFEBD458E378DF077E0B604D30AD1",
+							"name": "CachedController",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C2F5B69646682AA8C0C4EA8EB0034491",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "E9C58E8342AE003E67080380B3E7BAB4",
+					"class_path": "/Script/BlueprintGraph.K2Node_VariableGet",
+					"title": "Get CachedController",
+					"pos_x": -1696,
+					"pos_y": 1344,
+					"comment": "",
+					"variable_ref":
+					{
+						"member_name": "CachedController",
+						"member_parent": "/ShooterCore/Game/Respawn/GA_SpawnEffect.SKEL_GA_SpawnEffect_C",
+						"member_guid": "7A1EF346454043EA28FEFF8DF08E65A9",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "0FF0EFB14DBE4CE8E16F679EF1BCBA43",
+							"name": "CachedController",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Controller",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "B616F47F47490127F3134A870A038069",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/ShooterCore/Game/Respawn/GA_SpawnEffect.GA_SpawnEffect_C",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "11B80F5B4146CAB141527F955639FDC7",
+					"class_path": "/Script/UnrealEd.EdGraphNode_Comment",
+					"title": "Comment",
+					"pos_x": -432,
+					"pos_y": -528,
+					"comment": "We play a montage but control the rest of the ability based on the nominal length, ignoring if the montage is cancelled (e.g., by the equip anim)",
+					"pins": []
+				}
+			],
+			"links": [
+				{
+					"from_node_guid": "8DA2F46449E516FC574D8A8294794F31",
+					"from_pin_id": "BB0B82A948856C8FA7ED34A6B0F5C841",
+					"from_pin_name": "then",
+					"to_node_guid": "D0B664DF4A903FB3D9F25197A4A630F9",
+					"to_pin_id": "923359C240438BE154DC06B3640D84BF",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "F51B92084559690EAD0245849DD5110D",
+					"from_pin_id": "5A8102954D67D99512C8989AF77F4B39",
+					"from_pin_name": "then",
+					"to_node_guid": "A80FCA194E4348677897808F4D377867",
+					"to_pin_id": "1B881F5E4D30A628772480B84229728E",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "C298FFC64A1703A3D5B738B650128B58",
+					"from_pin_id": "1F58EC7D4BC4DD8079E94D924DBF6F88",
+					"from_pin_name": "OnCompleted",
+					"to_node_guid": "10A215024E93E3AB9BDA63B28E179B85",
+					"to_pin_id": "A0AA818D4F3BC8F7223537938AD1508D",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "90EA01004F57B77343167E802D5973EA",
+					"from_pin_id": "247C687F44997ADB46DD0D9FE55530D4",
+					"from_pin_name": "SpawnMontage",
+					"to_node_guid": "C298FFC64A1703A3D5B738B650128B58",
+					"to_pin_id": "0E7E93C14C64E4D44423C192CFE04951",
+					"to_pin_name": "MontageToPlay"
+				},
+				{
+					"from_node_guid": "8113C68D47DBF99A62863F9AD895EF77",
+					"from_pin_id": "DD09658E441A206DA2731C9A95653126",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "BC6FB61D4BB1F856D8B42489DC39AD56",
+					"to_pin_id": "6CCEF7554658036D6E6A5F95721ED037",
+					"to_pin_name": "self"
+				},
+				{
+					"from_node_guid": "8113C68D47DBF99A62863F9AD895EF77",
+					"from_pin_id": "DD09658E441A206DA2731C9A95653126",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "5051998B4958611E188589A98CB85637",
+					"to_pin_id": "443ECD6E4CE2A618E847939ED2443489",
+					"to_pin_name": "self"
+				},
+				{
+					"from_node_guid": "BC6FB61D4BB1F856D8B42489DC39AD56",
+					"from_pin_id": "F16FD8B64A6878A1E7B6B99CDA8B01F1",
+					"from_pin_name": "then",
+					"to_node_guid": "1FB64FC4451E80F5F61A839E5DE21CEA",
+					"to_pin_id": "0BE7CD614C3B9BFCCF4E4D8AB8C3A007",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "BC6FB61D4BB1F856D8B42489DC39AD56",
+					"from_pin_id": "A9F1035045349042014646820B60A28D",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "1FB64FC4451E80F5F61A839E5DE21CEA",
+					"to_pin_id": "0754FFDE4E4BF3BC163F5D830ED21982",
+					"to_pin_name": "SpawnInGE_Spec"
+				},
+				{
+					"from_node_guid": "5051998B4958611E188589A98CB85637",
+					"from_pin_id": "3EBF94B544E1EB368F58D48DDE95D759",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "BC6FB61D4BB1F856D8B42489DC39AD56",
+					"to_pin_id": "DACBDF5F439F264DDE3601B73DAF2F7F",
+					"to_pin_name": "EffectContext"
+				},
+				{
+					"from_node_guid": "1FB64FC4451E80F5F61A839E5DE21CEA",
+					"from_pin_id": "ED904630471238EF0FFF1E9D53B066B3",
+					"from_pin_name": "then",
+					"to_node_guid": "EB0B5C734C314E8F4F43768C80F4A8AF",
+					"to_pin_id": "CEBA6F804A604D2E0C4897B7AC5D7FFB",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "215BF14847AD334173552CA52A2044BA",
+					"from_pin_id": "43ECA307400A9D00569A4083B1261D12",
+					"from_pin_name": "SpawnInGE_Spec",
+					"to_node_guid": "A80FCA194E4348677897808F4D377867",
+					"to_pin_id": "EF23BBA34225C18990E8B78EAA8B8C84",
+					"to_pin_name": "Handle"
+				},
+				{
+					"from_node_guid": "A80FCA194E4348677897808F4D377867",
+					"from_pin_id": "BBF196D842E8164D7BD2E8BC12FD0DA9",
+					"from_pin_name": "then",
+					"to_node_guid": "5A6E48AE40EAA7517F5FF5B66DA763C1",
+					"to_pin_id": "CEA622E5402280902C264DBC36D3F6FF",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "B87026E3475CB76D26BFD485B8772C4E",
+					"from_pin_id": "241ECA9442491A4DBAD4D387546DC419",
+					"from_pin_name": "then",
+					"to_node_guid": "81D08AAB4B3C21BD0670088DB4A6EC22",
+					"to_pin_id": "A0AA818D4F3BC8F7223537938AD1508D",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "E564E5054A054BFB5A4459BF341368E8",
+					"from_pin_id": "247C687F44997ADB46DD0D9FE55530D4",
+					"from_pin_name": "SpawnMontage",
+					"to_node_guid": "1B90ED98443DF137204993ADE4D02CA4",
+					"to_pin_id": "8ECE7C69420AEBA97B5208B56A82EDF7",
+					"to_pin_name": "self"
+				},
+				{
+					"from_node_guid": "1B90ED98443DF137204993ADE4D02CA4",
+					"from_pin_id": "8402CA8045091AC843D051A4BDEFBAB9",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "B87026E3475CB76D26BFD485B8772C4E",
+					"to_pin_id": "E9252AFD4F610238308C2BA4C7E4438D",
+					"to_pin_name": "Duration"
+				},
+				{
+					"from_node_guid": "1B90ED98443DF137204993ADE4D02CA4",
+					"from_pin_id": "8402CA8045091AC843D051A4BDEFBAB9",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "E58C9B7949A212B39994B59B0A08FA74",
+					"to_pin_id": "4C1391D1410E42FC3F1F54821E5A335A",
+					"to_pin_name": "A"
+				},
+				{
+					"from_node_guid": "3724D1DF47026EAB39B684AC2661B5FB",
+					"from_pin_id": "1858E195412903DEF0790DA69546D744",
+					"from_pin_name": "then_0",
+					"to_node_guid": "B87026E3475CB76D26BFD485B8772C4E",
+					"to_pin_id": "589F1A9941CBD22968AF7F9938410FAB",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "3724D1DF47026EAB39B684AC2661B5FB",
+					"from_pin_id": "A75D783F4F23F8EDBCFCE7A3DEFD3BF9",
+					"from_pin_name": "then_1",
+					"to_node_guid": "4203700F4EF1D9B81343BD87777B3F8B",
+					"to_pin_id": "B40C463D49FD8B63E00BD096A05F37E7",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "3724D1DF47026EAB39B684AC2661B5FB",
+					"from_pin_id": "E3DECABD496BB426CEB6EAA057BF64CB",
+					"from_pin_name": "then_2",
+					"to_node_guid": "C298FFC64A1703A3D5B738B650128B58",
+					"to_pin_id": "89D6664244AE419A069DA5A74407471B",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "897E4273411A6540FA666AAC6D53F459",
+					"from_pin_id": "12346FEB4CD0424C97A1A984F46586AE",
+					"from_pin_name": "EnableInputAfterTimeFraction",
+					"to_node_guid": "E58C9B7949A212B39994B59B0A08FA74",
+					"to_pin_id": "6DDEBF7B41B4D37C4067BC8D73F3B026",
+					"to_pin_name": "B"
+				},
+				{
+					"from_node_guid": "4203700F4EF1D9B81343BD87777B3F8B",
+					"from_pin_id": "3041A8C54F4F6918F8425BB153BF08A2",
+					"from_pin_name": "then",
+					"to_node_guid": "11F8769340D4F7C5E65D7589E3B0EE67",
+					"to_pin_id": "CEA622E5402280902C264DBC36D3F6FF",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "E58C9B7949A212B39994B59B0A08FA74",
+					"from_pin_id": "082F0BCB4AE823B4E8B4D892FFB04E03",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "4203700F4EF1D9B81343BD87777B3F8B",
+					"to_pin_id": "9FA9065840FFCCEF14E3A99D469ED7E8",
+					"to_pin_name": "Duration"
+				},
+				{
+					"from_node_guid": "1FC9511346B33F7E0B2F61A52220DB14",
+					"from_pin_id": "F34BB25E41D34A84D7BAC1A478385050",
+					"from_pin_name": "then",
+					"to_node_guid": "6A20A6B949C19B2A620B95A00F95CED5",
+					"to_pin_id": "34663D0B4D642385767384AA6FC2DC67",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "77DA0F694A316DB52684FC9D722361FB",
+					"from_pin_id": "C2DA881D4567053A5E7DC28BAD564087",
+					"from_pin_name": "then",
+					"to_node_guid": "F19D4C1045B55B50D1B74CAD92185E7D",
+					"to_pin_id": "8B5AF13548F35B33ADE8ADA1BB87278F",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "6A20A6B949C19B2A620B95A00F95CED5",
+					"from_pin_id": "96C4A1BA4A95C923B0E116993B61753C",
+					"from_pin_name": "Completed",
+					"to_node_guid": "0F49E63341B26AB5534756BDC71AC33A",
+					"to_pin_id": "531C6952432D24B63C41C2B7E26D361C",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "F19D4C1045B55B50D1B74CAD92185E7D",
+					"from_pin_id": "51E40523436708A68B1BD6A77EB61663",
+					"from_pin_name": "then_0",
+					"to_node_guid": "83C877744A1B23DA64E8E6AA02061D90",
+					"to_pin_id": "531C6952432D24B63C41C2B7E26D361C",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "F19D4C1045B55B50D1B74CAD92185E7D",
+					"from_pin_id": "1A6101FF407AA06A2A05F4A124218074",
+					"from_pin_name": "then_1",
+					"to_node_guid": "6A20A6B949C19B2A620B95A00F95CED5",
+					"to_pin_id": "C81D839B40C8577978673A979166AF2F",
+					"to_pin_name": "Reset"
+				},
+				{
+					"from_node_guid": "EB0B5C734C314E8F4F43768C80F4A8AF",
+					"from_pin_id": "04BAD6E54FA0D45013494692CC061892",
+					"from_pin_name": "then",
+					"to_node_guid": "3724D1DF47026EAB39B684AC2661B5FB",
+					"to_pin_id": "F35EEA1D48913573921D609E84591872",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "83E3C3A24810EF766D05D5AD85AB677F",
+					"from_pin_id": "B952972849ECBD7D0C7E97B18D085C1A",
+					"from_pin_name": "ReturnValue",
+					"to_node_guid": "D0B664DF4A903FB3D9F25197A4A630F9",
+					"to_pin_id": "C9CE797A44CB02CF3419ADADCD0BDD56",
+					"to_pin_name": "CachedController"
+				},
+				{
+					"from_node_guid": "D0B664DF4A903FB3D9F25197A4A630F9",
+					"from_pin_id": "B2E6A53E4C9E7888C4D45D8B797B7ECF",
+					"from_pin_name": "then",
+					"to_node_guid": "BC6FB61D4BB1F856D8B42489DC39AD56",
+					"to_pin_id": "881F076F44FD8B578A814DAD164B2561",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "D0738D354419E30841CE00AEE4CB43EB",
+					"from_pin_id": "DFFEFEBD458E378DF077E0B604D30AD1",
+					"from_pin_name": "CachedController",
+					"to_node_guid": "83C877744A1B23DA64E8E6AA02061D90",
+					"to_pin_id": "2F2174E74F2E28E3745E4EA0297C2F9C",
+					"to_pin_name": "self"
+				},
+				{
+					"from_node_guid": "E9C58E8342AE003E67080380B3E7BAB4",
+					"from_pin_id": "0FF0EFB14DBE4CE8E16F679EF1BCBA43",
+					"from_pin_name": "CachedController",
+					"to_node_guid": "0F49E63341B26AB5534756BDC71AC33A",
+					"to_pin_id": "2F2174E74F2E28E3745E4EA0297C2F9C",
+					"to_pin_name": "self"
+				}
+			]
+		}
+	],
+	"variables": [
+		{
+			"var_name": "SpawnMontage",
+			"var_guid": "2AA9A1464E6212920958CC87051BA31B",
+			"friendly_name": "Spawn Montage",
+			"var_category": "Default",
+			"default_value": "",
+			"property_flags": 65541,
+			"rep_notify_func": "None",
+			"var_type":
+			{
+				"category": "object",
+				"sub_category": "None",
+				"sub_category_object": "/Script/Engine.AnimMontage",
+				"is_array": false,
+				"is_reference": false,
+				"is_const": false
+			},
+			"meta_data":
+			{
+				"MultiLine": "true"
+			}
+		},
+		{
+			"var_name": "SpawnInGE_Spec",
+			"var_guid": "EC5668EA4464C2EB7E38C29051FA8B88",
+			"friendly_name": "Spawn in GE Spec",
+			"var_category": "Default",
+			"default_value": "",
+			"property_flags": 65541,
+			"rep_notify_func": "None",
+			"var_type":
+			{
+				"category": "struct",
+				"sub_category": "None",
+				"sub_category_object": "/Script/GameplayAbilities.ActiveGameplayEffectHandle",
+				"is_array": false,
+				"is_reference": false,
+				"is_const": false
+			},
+			"meta_data":
+			{
+				"MultiLine": "true"
+			}
+		},
+		{
+			"var_name": "EnableInputAfterTimeFraction",
+			"var_guid": "B5583ED645C729701AEC779F209D3CE2",
+			"friendly_name": "Enable Input After Time Fraction",
+			"var_category": "Default",
+			"default_value": "",
+			"property_flags": 65541,
+			"rep_notify_func": "None",
+			"var_type":
+			{
+				"category": "real",
+				"sub_category": "double",
+				"sub_category_object": "",
+				"is_array": false,
+				"is_reference": false,
+				"is_const": false
+			},
+			"meta_data":
+			{
+				"MultiLine": "true"
+			}
+		},
+		{
+			"var_name": "CachedController",
+			"var_guid": "7A1EF346454043EA28FEFF8DF08E65A9",
+			"friendly_name": "Cached Controller",
+			"var_category": "Default",
+			"default_value": "",
+			"property_flags": 67589,
+			"rep_notify_func": "None",
+			"var_type":
+			{
+				"category": "object",
+				"sub_category": "None",
+				"sub_category_object": "/Script/Engine.Controller",
+				"is_array": false,
+				"is_reference": false,
+				"is_const": false
+			},
+			"meta_data":
+			{
+				"MultiLine": "true"
+			}
+		}
+	]
+}

@@ -1,0 +1,62 @@
+# Elasticsearch + Kibana for WAX Blueprint semantic search.
+#
+# Usage:
+#   cd G:/Proj/Wick/docker
+#   docker compose up -d
+#
+# Health check:
+#   curl http://127.0.0.1:9200/_cluster/health
+#   open http://127.0.0.1:5601  (Kibana UI)
+#
+# Stop:
+#   docker compose down                # keeps data volume
+#   docker compose down -v             # wipes ES data
+
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.3
+    container_name: wax-es
+    environment:
+      - node.name=wax-es
+      - cluster.name=wax-cluster
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - xpack.security.http.ssl.enabled=false
+      - xpack.security.transport.ssl.enabled=false
+      - bootstrap.memory_lock=true
+      - ES_JAVA_OPTS=-Xms2g -Xmx4g
+      # Enable dense_vector + kNN search (default on in 8.x)
+      - action.destructive_requires_name=true
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "127.0.0.1:9200:9200"
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:9200/_cluster/health?wait_for_status=yellow&timeout=5s || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+    restart: unless-stopped
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.14.3
+    container_name: wax-kibana
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - SERVER_HOST=0.0.0.0
+      - SERVER_NAME=wax-kibana
+    ports:
+      - "127.0.0.1:5601:5601"
+    restart: unless-stopped
+
+volumes:
+  esdata:
+    driver: local

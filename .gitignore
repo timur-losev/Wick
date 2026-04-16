@@ -16,3 +16,20 @@
 
 # Claude
 .claude/settings.local.json
+
+# Python venv for embedding service
+/py_env/
+__pycache__/
+*.pyc
+*.pyo
+
+# Docker volumes / local data
+/docker/data/
+
+# Pipeline intermediate artifacts (bp_facts.json, bp_purposes.json — regeneratable)
+/data/
+
+# Local environment overrides
+.env
+.env.local
+

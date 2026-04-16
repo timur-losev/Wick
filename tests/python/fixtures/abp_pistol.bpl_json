@@ -1,0 +1,223 @@
+﻿{
+	"blueprint": "/Game/Characters/Heroes/Mannequin/Animations/Locomotion/Pistol/ABP_PistolAnimLayers.ABP_PistolAnimLayers",
+	"asset_path": "/Game/Characters/Heroes/Mannequin/Animations/Locomotion/Pistol/ABP_PistolAnimLayers.ABP_PistolAnimLayers",
+	"asset_name": "ABP_PistolAnimLayers",
+	"asset_class": "/Script/Engine.AnimBlueprint",
+	"asset_kind": "blueprint",
+	"graphs": [
+		{
+			"name": "EventGraph",
+			"graph_guid": "CC9C439141D2DC7F92FB42A345E4AE75",
+			"schema_class": "/Script/BlueprintGraph.EdGraphSchema_K2",
+			"nodes": [
+				{
+					"node_guid": "2930C3CB4300BA4F4E830797308FE45C",
+					"class_path": "/Script/BlueprintGraph.K2Node_Event",
+					"title": "Event Blueprint Update Animation",
+					"pos_x": 0,
+					"pos_y": 0,
+					"comment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"event_ref":
+					{
+						"member_name": "BlueprintUpdateAnimation",
+						"member_parent": "/Script/Engine.AnimInstance",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"custom_function_name": "None",
+					"override_function": true,
+					"pins": [
+						{
+							"pin_id": "F9E6B9A146FB231833B189B8E2B5E1AB",
+							"name": "OutputDelegate",
+							"direction": "out",
+							"type_cat": "delegate",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "2B2F0700412AA1B6323830AEFC4868A9",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "F979A5274AE224A8BD6633AA75BD2F41",
+							"name": "DeltaTimeX",
+							"direction": "out",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.0",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "600C21164053D531BCEF61B8CB455893",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallParentFunction",
+					"title": "Parent: Blueprint Update Animation",
+					"pos_x": 200,
+					"pos_y": 0,
+					"comment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"function":
+					{
+						"member_name": "BlueprintUpdateAnimation",
+						"member_parent": "/Script/Engine.AnimInstance",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": false
+					},
+					"pins": [
+						{
+							"pin_id": "D1E8B36445704420A5403BAD6B27D97F",
+							"name": "execute",
+							"direction": "in",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "1295001B42DA49746D6A1A926F3C409A",
+							"name": "then",
+							"direction": "out",
+							"type_cat": "exec",
+							"type_sub": "None",
+							"type_obj": "",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "38C162374F93444E3B6A02AAC884759F",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.AnimInstance",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "CFD1222C4D46C1A1C80CC6AE5420EC6D",
+							"name": "DeltaTimeX",
+							"direction": "in",
+							"type_cat": "real",
+							"type_sub": "float",
+							"type_obj": "",
+							"default_value": "0.0",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				},
+				{
+					"node_guid": "1D96B7534D77F5FCD4D9C9A4C461E3E8",
+					"class_path": "/Script/BlueprintGraph.K2Node_CallFunction",
+					"title": "Try Get Pawn Owner",
+					"pos_x": 0,
+					"pos_y": 100,
+					"comment": "This node is disabled and will not be called.\nDrag off pins to build functionality.",
+					"function":
+					{
+						"member_name": "TryGetPawnOwner",
+						"member_parent": "/Game/Characters/Heroes/Mannequin/Animations/Locomotion/Pistol/ABP_PistolAnimLayers.SKEL_ABP_PistolAnimLayers_C",
+						"member_guid": "00000000000000000000000000000000",
+						"self_context": true
+					},
+					"pins": [
+						{
+							"pin_id": "28619640421B2972FB35C09A25884DFC",
+							"name": "self",
+							"direction": "in",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.AnimInstance",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						},
+						{
+							"pin_id": "C28ABF4F4288EEB9755572AEC4503053",
+							"name": "ReturnValue",
+							"direction": "out",
+							"type_cat": "object",
+							"type_sub": "None",
+							"type_obj": "/Script/Engine.Pawn",
+							"default_value": "",
+							"default_object": "",
+							"default_text": "",
+							"is_array": false,
+							"is_reference": false,
+							"is_const": false,
+							"container_type": "None"
+						}
+					]
+				}
+			],
+			"links": [
+				{
+					"from_node_guid": "2930C3CB4300BA4F4E830797308FE45C",
+					"from_pin_id": "2B2F0700412AA1B6323830AEFC4868A9",
+					"from_pin_name": "then",
+					"to_node_guid": "600C21164053D531BCEF61B8CB455893",
+					"to_pin_id": "D1E8B36445704420A5403BAD6B27D97F",
+					"to_pin_name": "execute"
+				},
+				{
+					"from_node_guid": "2930C3CB4300BA4F4E830797308FE45C",
+					"from_pin_id": "F979A5274AE224A8BD6633AA75BD2F41",
+					"from_pin_name": "DeltaTimeX",
+					"to_node_guid": "600C21164053D531BCEF61B8CB455893",
+					"to_pin_id": "CFD1222C4D46C1A1C80CC6AE5420EC6D",
+					"to_pin_name": "DeltaTimeX"
+				}
+			]
+		}
+	],
+	"variables": []
+}

@@ -1,17 +1,23 @@
 #!/usr/bin/env node
 // ============================================================
 //  WAX MCP Bridge — connects VS Code agents to WAX C++ RAG
-//  server via JSON-RPC over HTTP.
+//  server via JSON-RPC over HTTP, and to the Blueprint semantic
+//  search stack (Elasticsearch + local embedding service).
 //
 //  Tools exposed:
-//    wax_recall          — BM25 search over indexed code + enriched facts
-//    wax_remember        — store knowledge for future recall
-//    wax_fact_search     — search structured facts by entity prefix
-//    wax_blueprint_read  — read exported Blueprint JSON
-//    wax_blueprint_write — write modified Blueprint JSON
+//    wax_recall               — BM25 search over indexed code + facts (C++ path)
+//    wax_remember             — store knowledge for future recall
+//    wax_fact_search          — search structured facts by entity prefix (EAV)
+//    wax_blueprint_read       — read exported Blueprint JSON
+//    wax_blueprint_*          — compressed_read / patch / write / import
+//    wax_bp_semantic_search   — semantic (kNN / BM25 / hybrid) over indexed BPs
+//    wax_bp_facts             — exact BP lookup by entity (from ES)
 //
 //  Env:
-//    WAX_URL  — WAX C++ server URL (default http://127.0.0.1:8080)
+//    WAX_URL              — WAX C++ server URL (default http://127.0.0.1:8080)
+//    WAX_EMBED_URL        — embedding service URL (default http://127.0.0.1:8088)
+//    WAX_ES_URL           — Elasticsearch URL (default http://127.0.0.1:9200)
+//    WAX_ES_BP_INDEX      — BP index name (default wax_bp_v1)
 // ============================================================
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -22,7 +28,10 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 // Patch compiler is now in C++ (blueprint.patch endpoint)
 
-const WAX_URL = process.env.WAX_URL || "http://127.0.0.1:8080";
+const WAX_URL       = process.env.WAX_URL       || "http://127.0.0.1:8080";
+const EMBED_URL     = process.env.WAX_EMBED_URL || "http://127.0.0.1:8088";
+const ES_URL        = process.env.WAX_ES_URL    || "http://127.0.0.1:9200";
+const ES_BP_INDEX   = process.env.WAX_ES_BP_INDEX || "wax_bp_v1";
 
 // ── JSON-RPC helper ──────────────────────────────────────────
 
@@ -46,7 +55,16 @@ async function callWax(method, params = {}) {
     throw new Error(`WAX HTTP ${res.status}: ${await res.text()}`);
   }
 
-  const json = await res.json();
+  // Server may return plain text (e.g., "OK") or JSON.
+  // Parse defensively to handle both.
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    // Plain text response (e.g., "OK", "Error: ...") — wrap it.
+    return text;
+  }
 
   // Support both response styles:
   // 1) JSON-RPC envelope: { jsonrpc, id, result|error }
@@ -83,6 +101,43 @@ async function callWax(method, params = {}) {
     }
   }
   return raw;
+}
+
+// ── Embedding service + Elasticsearch helpers ────────────────
+
+async function embedQuery(text) {
+  const res = await fetch(`${EMBED_URL}/embed`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, is_query: true }),
+  });
+  if (!res.ok) {
+    throw new Error(`Embed HTTP ${res.status}: ${await res.text()}`);
+  }
+  const j = await res.json();
+  return j.vector;
+}
+
+async function esSearch(body) {
+  const res = await fetch(`${ES_URL}/${ES_BP_INDEX}/_search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    throw new Error(`ES HTTP ${res.status}: ${await res.text()}`);
+  }
+  return await res.json();
+}
+
+async function esGetDoc(id) {
+  const url = `${ES_URL}/${ES_BP_INDEX}/_doc/${encodeURIComponent(id)}?_source_excludes=embedding`;
+  const res = await fetch(url);
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    throw new Error(`ES HTTP ${res.status}: ${await res.text()}`);
+  }
+  return await res.json();
 }
 
 // ── MCP Server ───────────────────────────────────────────────
@@ -169,9 +224,11 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "wax_blueprint_read",
       description:
-        "Read a UE Blueprint's exported JSON by its asset path. " +
-        "Returns the full Blueprint graph JSON (nodes, pins, links, variables). " +
-        'Example blueprint_path: "/Game/Blueprints/BP_MyActor.BP_MyActor"',
+        "Read a UE Blueprint's FULL exported JSON (nodes, pins, links, variables). " +
+        "WARNING: Full JSON is often 100K+ chars and may exceed context limits. " +
+        "PREFER wax_blueprint_compressed_read for most use cases — it returns only " +
+        "semantic data (node titles, function calls, events) at 10-15x smaller size. " +
+        "Use this tool only when you need raw pin IDs or link GUIDs.",
       inputSchema: {
         type: "object",
         properties: {
@@ -291,6 +348,61 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["blueprint_path", "export_dir"],
       },
     },
+    {
+      name: "wax_bp_semantic_search",
+      description:
+        "Semantic search over indexed Blueprints (hybrid vector + BM25). " +
+        "Use when you need to FIND a Blueprint by what it DOES, not by exact name. " +
+        "Returns top-K hits with kind, parent_class, purpose, and exec_chains. " +
+        "Good queries: 'disables player input temporarily', 'handles weapon pickup with ammo', " +
+        "'ability that spawns a tagged actor'. " +
+        "Prefer this over wax_recall when searching for Blueprints.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          query: {
+            type: "string",
+            description: "Natural language description of what the Blueprint does",
+          },
+          k: {
+            type: "number",
+            description: "Number of hits to return (default 5, max 20)",
+          },
+          mode: {
+            type: "string",
+            enum: ["knn", "bm25", "hybrid"],
+            description:
+              "knn = pure vector similarity, bm25 = keyword search, " +
+              "hybrid = weighted combination of both (default, recommended)",
+          },
+          kind_filter: {
+            type: "string",
+            description:
+              "Optional filter by kind: gameplay_ability, gameplay_effect, gameplay_cue, " +
+              "anim_blueprint, anim_notify, widget, actor_blueprint, blueprint",
+          },
+        },
+        required: ["query"],
+      },
+    },
+    {
+      name: "wax_bp_facts",
+      description:
+        "Exact Blueprint lookup by entity id. Returns all structural facts for a " +
+        "single BP: kind, parent_class, events, calls, variables, exec_chains, purpose. " +
+        "Use this AFTER wax_bp_semantic_search to get full details on a specific BP, " +
+        "or when you already know the BP name.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          entity: {
+            type: "string",
+            description: "Full entity id, e.g. 'bp:GA_SpawnEffect'. Must start with 'bp:'.",
+          },
+        },
+        required: ["entity"],
+      },
+    },
   ],
 }));
 
@@ -332,8 +444,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           metadata: args.metadata || {},
         });
 
+        const isError = result && typeof result === "object" && result.error;
+        const text = isError
+          ? `Error: ${result.error}`
+          : (result && typeof result === "object" && result.status)
+            ? `Remembered (${result.status})`
+            : `Remembered: ${String(result)}`;
+
         return {
-          content: [{ type: "text", text: String(result) }],
+          content: [{ type: "text", text }],
+          isError: !!isError,
         };
       }
 
@@ -382,8 +502,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
+        const fullJson = result.json || JSON.stringify(result);
+
+        // Auto-fallback to compressed_read if full JSON is too large for context.
+        // 40K chars ≈ 10K tokens — safe limit to avoid MCP truncation.
+        if (fullJson.length > 40000) {
+          const compressed = await callWax("blueprint.compressed_read", {
+            blueprint_path: args.blueprint_path,
+            export_dir: args.export_dir,
+          });
+
+          if (compressed && typeof compressed === "object" && !compressed.error) {
+            const ratio = compressed.original_size > 0
+              ? (compressed.original_size / compressed.compressed_size).toFixed(1)
+              : "?";
+            return {
+              content: [{ type: "text", text:
+                `⚠ Full blueprint JSON too large (${fullJson.length} chars). ` +
+                `Auto-switched to compressed_read (${ratio}x smaller).\n` +
+                `Use wax_blueprint_compressed_read directly to avoid this fallback.\n\n` +
+                compressed.json }],
+            };
+          }
+        }
+
         return {
-          content: [{ type: "text", text: result.json || JSON.stringify(result) }],
+          content: [{ type: "text", text: fullJson }],
         };
       }
 
@@ -492,6 +636,169 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
         return {
           content: [{ type: "text", text: `Compressed ${ratio}x (${result.original_size} → ${result.compressed_size} bytes)\n\n${result.json}` }],
+        };
+      }
+
+      case "wax_bp_semantic_search": {
+        const query = (args.query || "").toString();
+        if (!query.trim()) {
+          return {
+            content: [{ type: "text", text: "Error: query is required" }],
+            isError: true,
+          };
+        }
+        const k = Math.min(20, Math.max(1, Math.round(args.k ?? 5)));
+        const mode = ["knn", "bm25", "hybrid"].includes(args.mode) ? args.mode : "hybrid";
+        const kindFilter = (args.kind_filter || "").toString().trim();
+
+        // Build ES request body based on mode.
+        let body;
+        if (mode === "bm25") {
+          // Pure keyword — no embedding call needed.
+          body = {
+            size: k,
+            _source: { excludes: ["embedding"] },
+            query: {
+              multi_match: {
+                query,
+                fields: ["purpose^2", "asset_name^2", "text", "exec_chain", "calls"],
+              },
+            },
+          };
+        } else {
+          // knn or hybrid — embedding required.
+          const vec = await embedQuery(query);
+          if (mode === "knn") {
+            body = {
+              size: k,
+              _source: { excludes: ["embedding"] },
+              knn: {
+                field: "embedding",
+                query_vector: vec,
+                k,
+                num_candidates: Math.max(100, k * 20),
+              },
+            };
+          } else {
+            // hybrid: kNN (weight 0.7) + BM25 (weight 0.3), fused by ES _score.
+            body = {
+              size: k,
+              _source: { excludes: ["embedding"] },
+              knn: {
+                field: "embedding",
+                query_vector: vec,
+                k: k * 2,
+                num_candidates: Math.max(200, k * 20),
+                boost: 0.7,
+              },
+              query: {
+                multi_match: {
+                  query,
+                  fields: ["purpose^2", "asset_name^2", "text", "exec_chain", "calls"],
+                  boost: 0.3,
+                },
+              },
+            };
+          }
+        }
+
+        if (kindFilter) {
+          const filter = { term: { kind: kindFilter } };
+          if (body.knn) body.knn.filter = filter;
+          if (body.query) {
+            body.query = { bool: { must: [body.query], filter: [filter] } };
+          } else {
+            body.query = { bool: { filter: [filter] } };
+          }
+        }
+
+        const resp = await esSearch(body);
+        const hits = resp.hits?.hits ?? [];
+        if (hits.length === 0) {
+          return {
+            content: [{ type: "text", text: `No Blueprints matched "${query}" (mode=${mode})` }],
+          };
+        }
+
+        const lines = hits.map((h, i) => {
+          const s = h._source || {};
+          const parts = [
+            `[${i + 1}] score=${h._score?.toFixed(3) ?? "?"}  ${s.entity}  [${s.kind}]`,
+          ];
+          if (s.purpose) parts.push(`    purpose: ${s.purpose}`);
+          if (s.parent_class) parts.push(`    parent:  ${s.parent_class}`);
+          if (s.exec_chain) {
+            const chain = s.exec_chain.length > 200 ? s.exec_chain.slice(0, 200) + "…" : s.exec_chain;
+            parts.push(`    exec:    ${chain}`);
+          }
+          return parts.join("\n");
+        });
+        const header = `Found ${hits.length} Blueprint(s) for "${query}" (mode=${mode}${kindFilter ? `, kind=${kindFilter}` : ""}):`;
+        return {
+          content: [{ type: "text", text: `${header}\n\n${lines.join("\n\n")}` }],
+        };
+      }
+
+      case "wax_bp_facts": {
+        const entity = (args.entity || "").toString().trim();
+        if (!entity) {
+          return {
+            content: [{ type: "text", text: "Error: entity is required" }],
+            isError: true,
+          };
+        }
+        if (!entity.startsWith("bp:")) {
+          return {
+            content: [{
+              type: "text",
+              text: `Error: entity must start with 'bp:' (got ${JSON.stringify(entity)})`,
+            }],
+            isError: true,
+          };
+        }
+
+        const doc = await esGetDoc(entity);
+        if (!doc || !doc.found) {
+          return {
+            content: [{ type: "text", text: `Blueprint ${entity} not found in index` }],
+            isError: true,
+          };
+        }
+        const s = doc._source;
+
+        // Format as structured readable text.
+        const sections = [];
+        sections.push(`Entity: ${s.entity}`);
+        sections.push(`Kind: ${s.kind}   parent_class: ${s.parent_class || "?"}`);
+        if (s.asset_path) sections.push(`Asset path: ${s.asset_path}`);
+        sections.push(`Nodes: ${s.node_count}   Links: ${s.link_count}`);
+        if (s.purpose) {
+          sections.push("");
+          sections.push(`Purpose:\n  ${s.purpose}`);
+        }
+        if (s.exec_chain) {
+          sections.push("");
+          sections.push(`Exec chains:\n  ${s.exec_chain}`);
+        }
+
+        const listIfAny = (label, arr) => {
+          if (!arr || !arr.length) return null;
+          return `${label} (${arr.length}):\n  ${arr.join(", ")}`;
+        };
+        for (const line of [
+          listIfAny("Events", s.events),
+          listIfAny("Custom events", s.custom_events),
+          listIfAny("Calls", s.calls),
+          listIfAny("Call owners", s.calls_owners),
+          listIfAny("Variables", s.variables),
+          listIfAny("Casts to", s.casts_to),
+          listIfAny("Macros", s.macros),
+        ]) {
+          if (line) { sections.push(""); sections.push(line); }
+        }
+
+        return {
+          content: [{ type: "text", text: sections.join("\n") }],
         };
       }
 
