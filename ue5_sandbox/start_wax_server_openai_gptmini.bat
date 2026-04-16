@@ -2,10 +2,17 @@
 REM ============================================================
 REM  WAX RAG Server startup script
 REM  OpenAI Responses API + gpt-5-mini preset
+REM
+REM  SECURITY: Do NOT commit your OpenAI API key here. Provide it via
+REM  one of these mechanisms instead:
+REM    * Set OPENAI_API_KEY in your shell/profile permanently
+REM    * Pass via .env file outside the repo
+REM    * Or set just for this terminal: set OPENAI_API_KEY=sk-...
 REM ============================================================
 
-set OPENAI_API_KEY=REDACTED-OPENAI-KEY
+REM Optional: set WAXCPP_ENRICH_LLM_CONCURRENCY here if you want to override
 set WAXCPP_ENRICH_LLM_CONCURRENCY=4
+
 if not defined OPENAI_API_KEY if not defined WAXCPP_OPENAI_API_KEY (
   echo ============================================================
   echo  ERROR: OPENAI_API_KEY is not set.
